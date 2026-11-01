@@ -1,0 +1,17 @@
+{
+  "backend": "ibm_kingston",
+  "condition": "noisy",
+  "calibration": "isotonic_dw",
+  "cost": {"C": 100.0, "tau_s": 10.0, "tau_a": 1.5, "kappa": 1.5},
+  "queue_cost": 1.5,
+  "sizes": [4, 6],
+  "instances_per_size": 10,
+  "final_epoch_seed": 8500000,
+  "dry_run_epoch_seed": 4600000,
+  "variant": "vanilla",
+  "warm_eps": 0.25,
+  "depths": [1, 2],
+  "restarts": 3,
+  "shots": 4000,
+  "transpile": {"optimization_level": 3, "seeds": 20}
+}

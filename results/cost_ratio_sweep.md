@@ -1,0 +1,54 @@
+# Collision-cost sweep (N = 6, development pool, 500 epochs per cell)
+
+A robot that cannot ask goes when p < 10 / (C + 10).
+
+|                                           |   ('collisions_pct', 'exact') |   ('collisions_pct', 'independent_rule') |   ('unnecessary_stops', 'exact') |   ('unnecessary_stops', 'independent_rule') |
+|:------------------------------------------|------------------------------:|-----------------------------------------:|---------------------------------:|--------------------------------------------:|
+| ('noisy', 'none', 'isotonic', 10)         |                         56.09 |                                    17.97 |                             0.19 |                                        1.19 |
+| ('noisy', 'none', 'isotonic', 25)         |                         22.7  |                                    17.97 |                             1.05 |                                        1.19 |
+| ('noisy', 'none', 'isotonic', 50)         |                          2.14 |                                    17.97 |                             1.61 |                                        1.19 |
+| ('noisy', 'none', 'isotonic', 100)        |                          0.64 |                                    17.97 |                             1.65 |                                        1.19 |
+| ('noisy', 'none', 'isotonic_dw', 10)      |                         42.87 |                                     1.91 |                             0.53 |                                        1.63 |
+| ('noisy', 'none', 'isotonic_dw', 25)      |                          6.59 |                                     1.91 |                             1.49 |                                        1.63 |
+| ('noisy', 'none', 'isotonic_dw', 50)      |                          1.44 |                                     1.91 |                             1.64 |                                        1.63 |
+| ('noisy', 'none', 'isotonic_dw', 100)     |                          0.81 |                                     1.91 |                             1.65 |                                        1.63 |
+| ('noisy', 'none', 'raw', 10)              |                         52.22 |                                    32.35 |                             0.29 |                                        0.78 |
+| ('noisy', 'none', 'raw', 25)              |                         34.84 |                                    32.35 |                             0.69 |                                        0.78 |
+| ('noisy', 'none', 'raw', 50)              |                         18.66 |                                    32.35 |                             1.14 |                                        0.78 |
+| ('noisy', 'none', 'raw', 100)             |                          7.34 |                                    32.35 |                             1.47 |                                        0.78 |
+| ('noisy', 'single', 'isotonic', 10)       |                         60.43 |                                    17.97 |                             0.09 |                                        1.19 |
+| ('noisy', 'single', 'isotonic', 25)       |                         35.12 |                                    17.97 |                             0.73 |                                        1.19 |
+| ('noisy', 'single', 'isotonic', 50)       |                         14.27 |                                    17.97 |                             1.28 |                                        1.19 |
+| ('noisy', 'single', 'isotonic', 100)      |                          0.69 |                                    17.97 |                             1.65 |                                        1.19 |
+| ('noisy', 'single', 'isotonic_dw', 10)    |                         55.05 |                                     1.91 |                             0.23 |                                        1.63 |
+| ('noisy', 'single', 'isotonic_dw', 25)    |                         21.43 |                                     1.91 |                             1.07 |                                        1.63 |
+| ('noisy', 'single', 'isotonic_dw', 50)    |                          1.91 |                                     1.91 |                             1.63 |                                        1.63 |
+| ('noisy', 'single', 'isotonic_dw', 100)   |                          1.16 |                                     1.91 |                             1.64 |                                        1.63 |
+| ('noisy', 'single', 'raw', 10)            |                         57.31 |                                    32.35 |                             0.19 |                                        0.78 |
+| ('noisy', 'single', 'raw', 25)            |                         43.1  |                                    32.35 |                             0.51 |                                        0.78 |
+| ('noisy', 'single', 'raw', 50)            |                         26.75 |                                    32.35 |                             0.92 |                                        0.78 |
+| ('noisy', 'single', 'raw', 100)           |                         12.71 |                                    32.35 |                             1.3  |                                        0.78 |
+| ('nominal', 'none', 'isotonic', 10)       |                         33.26 |                                     3.15 |                             0.38 |                                        0.92 |
+| ('nominal', 'none', 'isotonic', 25)       |                          4.3  |                                     3.15 |                             0.92 |                                        0.92 |
+| ('nominal', 'none', 'isotonic', 50)       |                          0.86 |                                     3.15 |                             1.01 |                                        0.92 |
+| ('nominal', 'none', 'isotonic', 100)      |                          0.29 |                                     3.15 |                             1.04 |                                        0.92 |
+| ('nominal', 'none', 'isotonic_dw', 10)    |                          6.82 |                                     0.57 |                             0.89 |                                        1.03 |
+| ('nominal', 'none', 'isotonic_dw', 25)    |                          0.52 |                                     0.57 |                             1.05 |                                        1.03 |
+| ('nominal', 'none', 'isotonic_dw', 50)    |                          0.06 |                                     0.57 |                             1.07 |                                        1.03 |
+| ('nominal', 'none', 'isotonic_dw', 100)   |                          0    |                                     0.57 |                             1.08 |                                        1.03 |
+| ('nominal', 'none', 'raw', 10)            |                         41.23 |                                     4.53 |                             0.25 |                                        0.9  |
+| ('nominal', 'none', 'raw', 25)            |                          9.29 |                                     4.53 |                             0.86 |                                        0.9  |
+| ('nominal', 'none', 'raw', 50)            |                          0.52 |                                     4.53 |                             1.05 |                                        0.9  |
+| ('nominal', 'none', 'raw', 100)           |                          0    |                                     4.53 |                             1.13 |                                        0.9  |
+| ('nominal', 'single', 'isotonic', 10)     |                         46.22 |                                     3.15 |                             0.17 |                                        0.92 |
+| ('nominal', 'single', 'isotonic', 25)     |                          9.17 |                                     3.15 |                             0.84 |                                        0.92 |
+| ('nominal', 'single', 'isotonic', 50)     |                          1.66 |                                     3.15 |                             0.99 |                                        0.92 |
+| ('nominal', 'single', 'isotonic', 100)    |                          0.8  |                                     3.15 |                             1.02 |                                        0.92 |
+| ('nominal', 'single', 'isotonic_dw', 10)  |                         36.64 |                                     0.57 |                             0.32 |                                        1.03 |
+| ('nominal', 'single', 'isotonic_dw', 25)  |                          2.92 |                                     0.57 |                             0.98 |                                        1.03 |
+| ('nominal', 'single', 'isotonic_dw', 50)  |                          0.23 |                                     0.57 |                             1.06 |                                        1.03 |
+| ('nominal', 'single', 'isotonic_dw', 100) |                          0    |                                     0.57 |                             1.07 |                                        1.03 |
+| ('nominal', 'single', 'raw', 10)          |                         49.71 |                                     4.53 |                             0.13 |                                        0.9  |
+| ('nominal', 'single', 'raw', 25)          |                         21.67 |                                     4.53 |                             0.61 |                                        0.9  |
+| ('nominal', 'single', 'raw', 50)          |                          2.35 |                                     4.53 |                             1    |                                        0.9  |
+| ('nominal', 'single', 'raw', 100)         |                          0    |                                     4.53 |                             1.07 |                                        0.9  |
