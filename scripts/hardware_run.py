@@ -69,7 +69,20 @@ def main():
         if not (a.confirm_frozen and os.path.exists(pool_path)):
             sys.exit("Refusing: pass --confirm-frozen after the freeze, and create the final pool first.")
         from qiskit_ibm_runtime import QiskitRuntimeService
-        backend = QiskitRuntimeService().backend(P["backend"])
+        service = QiskitRuntimeService()
+        backend = None
+        for name in [P["backend"]] + P.get("fallback_backends", []):   # pre-registered order
+            try:
+                b = service.backend(name)
+                if b.status().operational:
+                    backend = b
+                    break
+                print(f"{name} is not operational; trying the next pre-registered backend")
+            except Exception as e:                                   # not available to this account
+                print(f"{name} unavailable ({e}); trying the next pre-registered backend")
+        if backend is None:
+            sys.exit("No pre-registered backend is available.")
+        P["backend"] = backend.name
 
     from qiskit import transpile
     pool = ScenarioPool(pool_path)
