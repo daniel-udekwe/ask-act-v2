@@ -36,6 +36,9 @@ The Ask or Act nodes are not modified; these are adapted copies.
 cd ~/fleet_qubo/fleet_gazebo
 source /opt/ros/humble/setup.bash          # and the HuNavSim workspace, as for Ask or Act
 
+# 0. Check the machine first (every line should say PASS)
+python3 check_setup.py
+
 # 1. Smoke test: one epoch, 2 robots, watch it
 python3 run_fleet_gazebo.py --N 2 --epochs 0 --conditions nominal --methods joint --gui --out runs_smoke
 
