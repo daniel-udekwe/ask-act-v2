@@ -21,6 +21,13 @@ Machine-readable settings: `prereg/hardware.json`. Runner: `scripts/hardware_run
 That is 40 circuits. Expected CZ counts from month-5 tuning: about 27 (N = 4, depth 1), 58 (N = 4,
 depth 2), 63 (N = 6, depth 1) and 149 (N = 6, depth 2).
 
+## Access (confirmed 1 November 2026)
+
+IBM Quantum Platform account saved on the investigator's machine (Open Plan, instance `vq`).
+Available backends: `ibm_fez`, `ibm_kingston`, `ibm_marrakesh`. If `ibm_kingston` is unavailable
+at run time, the run moves to `ibm_marrakesh`, then `ibm_fez` (all Heron r2), and the change is
+logged; nothing else changes.
+
 ## Budget
 
 At roughly 1 ms per shot including reset, 40 × 4,000 shots is about 2-3 minutes of QPU time. The
