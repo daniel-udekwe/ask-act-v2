@@ -116,3 +116,12 @@ rule; N = 6 and 8, noisy, decision-aware, 500 epochs, seeds 4 980 000+):
 | 8 | 0.74 | **6.20** | ≈ 6.29 | 4.50 | 2 / 0 of 2,210 crossing |
 
 The joint collision rate (about 0.1%) is well inside the 0.5 pp margin on development data.
+
+## 9. Exploratory QAOA re-runs (corrected probabilities)
+
+- **N = 10** (2 instances, depth 3, `results/qaoa_variants_n10.csv`): vanilla lift ≈ 450×, feasible
+  share 0.95, but the feasible expected cost is still ≈ 1.8× above the optimum; depth 3 is not
+  enough at 20 qubits, as before the fix. Warm start places almost no weight on the optimum.
+- **`ibm_kingston` noise model** (queue, 3 instances, `results/queue_qaoa_noisy.csv`): depth 2 lift
+  12× (N = 4) and 33× (N = 6) under noise; the feasible share falls from 0.99/0.98 to 0.89/0.79.
+  Very close to the pre-fix numbers; supports depths 1-2 for hardware as pre-registered.
