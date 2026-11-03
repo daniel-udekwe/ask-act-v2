@@ -19,7 +19,7 @@ sys.path.insert(0, os.path.join(ROOT, "fleet_gazebo"))
 from coordinator_core import Operator, Epochs  # noqa: E402
 
 AOA = os.environ.get("AOA_REPO", "/home/claude/daniel-udekwe/turtlebot3-ask_or_act")
-MODEL = os.environ.get("AOA_MODEL", "/home/claude/aoa_data/predictor/intent_model.pkl")
+MODEL = os.environ.get("AOA_MODEL", os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "predictor", "intent_model.pkl"))
 POOL = os.path.join(ROOT, "results", "deadline_probs.csv")
 need_aoa = pytest.mark.skipif(not (os.path.isdir(AOA) and os.path.exists(MODEL) and os.path.exists(POOL)),
                               reason="needs the Ask or Act repository, a trained model and the pool")

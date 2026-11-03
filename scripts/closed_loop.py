@@ -25,7 +25,7 @@ import pandas as pd
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 AOA = os.environ.get("AOA_REPO", "/home/claude/daniel-udekwe/turtlebot3-ask_or_act")
-MODEL = os.environ.get("AOA_MODEL", "/home/claude/aoa_data/predictor/intent_model.pkl")
+MODEL = os.environ.get("AOA_MODEL", os.path.join(ROOT, "predictor", "intent_model.pkl"))
 sys.path.insert(0, AOA)
 
 from fleet_qubo.instances import Instance, corridor_edges, default_budget  # noqa: E402

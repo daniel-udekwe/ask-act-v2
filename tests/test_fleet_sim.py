@@ -6,7 +6,7 @@ import pandas as pd
 import pytest
 
 AOA = os.environ.get("AOA_REPO", "/home/claude/daniel-udekwe/turtlebot3-ask_or_act")
-MODEL = os.environ.get("AOA_MODEL", "/home/claude/aoa_data/predictor/intent_model.pkl")
+MODEL = os.environ.get("AOA_MODEL", os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "predictor", "intent_model.pkl"))
 POOL = os.path.join(os.path.dirname(__file__), "..", "results", "deadline_probs.csv")
 pytestmark = pytest.mark.skipif(not (os.path.isdir(AOA) and os.path.exists(MODEL)),
                                 reason="needs the Ask or Act repository and a trained model")

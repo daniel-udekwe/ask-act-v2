@@ -28,7 +28,7 @@ class Deadline(Exception):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--aoa", default="/home/claude/daniel-udekwe/turtlebot3-ask_or_act")
-    ap.add_argument("--model", default="/home/claude/aoa_data/predictor/intent_model.pkl")
+    ap.add_argument("--model", default=os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "predictor", "intent_model.pkl"))
     ap.add_argument("--conditions", nargs="+", default=["nominal", "noisy"])
     ap.add_argument("--seed-start", type=int, default=4000)
     ap.add_argument("--seeds", type=int, default=100)
