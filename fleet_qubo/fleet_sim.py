@@ -70,9 +70,7 @@ def make_policy_class(AskOrActPolicy):
             f = _compute_features(self.obs[hid])
             if f is None:
                 return None
-            p = float(self.model.predict_proba(f.reshape(1, -1))[0, 1])
-            if self.calibrator is not None:
-                p = float(self.calibrator.transform(np.array([p]))[0])
+            p = _fast_probability(self.model, self.calibrator, f)
             hist = self.p_hist.setdefault(hid, [])
             hist.append(p)
             del hist[:-self.smooth_n]
@@ -268,3 +266,51 @@ def run_fleet(labels, policies, noise, shifts, aoa, joint=None, service=1.5,
 def congestion_time(halted, pairs) -> float:
     """Seconds during which both robots of a neighbouring pair were halted."""
     return sum(len(halted[i] & halted[j]) for i, j in pairs) * DT
+
+
+# --------------------------------------------------------------------------- #
+# Fast prediction: the same pipeline (StandardScaler -> MLP -> calibrator) evaluated in numpy.
+# sklearn's per-call input validation dominated simulation time; tests check equality.
+# --------------------------------------------------------------------------- #
+_FAST = {}
+
+
+def _fast_parts(model, calibrator):
+    import numpy as np
+    key = (id(model), id(calibrator))
+    if key in _FAST:
+        return _FAST[key]
+    parts = None
+    try:
+        scaler, mlp = model.steps[0][1], model.steps[-1][1]
+        if (type(scaler).__name__ == "StandardScaler" and type(mlp).__name__ == "MLPClassifier"
+                and mlp.activation == "relu" and mlp.out_activation_ == "logistic" and len(model.steps) == 2):
+            parts = dict(mean=scaler.mean_, scale=scaler.scale_, W=mlp.coefs_, b=mlp.intercepts_)
+    except (AttributeError, IndexError):
+        parts = None
+    cal = None
+    if calibrator is not None and type(calibrator).__name__ == "IsotonicCalibrator":
+        iso = calibrator.iso
+        if getattr(iso, "out_of_bounds", "") == "clip" and getattr(iso, "increasing_", True) is not False:
+            cal = ("iso", np.asarray(iso.X_thresholds_, float), np.asarray(iso.y_thresholds_, float))
+    _FAST[key] = (parts, cal)
+    return _FAST[key]
+
+
+def _fast_probability(model, calibrator, f):
+    import numpy as np
+    parts, cal = _fast_parts(model, calibrator)
+    if parts is None:
+        p = float(model.predict_proba(f.reshape(1, -1))[0, 1])
+    else:
+        h = (np.asarray(f, float) - parts["mean"]) / parts["scale"]
+        for W, b in zip(parts["W"][:-1], parts["b"][:-1]):
+            h = np.maximum(h @ W + b, 0.0)
+        z = float((h @ parts["W"][-1] + parts["b"][-1])[0])
+        p = 1.0 / (1.0 + np.exp(-z))
+    if calibrator is None:
+        return float(p)
+    if cal is not None:
+        _, x, y = cal
+        return float(np.clip(np.interp(p, x, y), 1e-6, 1 - 1e-6))
+    return float(calibrator.transform(np.array([p]))[0])

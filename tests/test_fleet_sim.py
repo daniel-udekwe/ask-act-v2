@@ -80,3 +80,17 @@ def test_probability_keeps_updating_after_history_fills(aoa):
     orig = aoa["policy"].AskOrActPolicy("threshold", model, cal, true_intent="crossing", p_low=-1.0, p_high=2.0)
     sp.simulate(lab, orig, 0.03, 1.5, 1.0, 1.0)
     assert len({d[2] for d in orig.decisions if d[2] != ""}) == 1   # documents the original behaviour
+
+
+def test_fast_probability_matches_sklearn(aoa):
+    """The numpy fast path must reproduce sklearn's pipeline and calibrators."""
+    from fleet_qubo.fleet_sim import _fast_probability
+    rng = np.random.default_rng(0)
+    X = rng.normal(size=(500, 6)) * 2.0
+    for kind in ("raw", "isotonic", "isotonic_dw", "temperature"):
+        model, cal = aoa["policy"].load_predictor(MODEL, "mlp", kind, "noisy")
+        ref = model.predict_proba(X)[:, 1]
+        if cal is not None:
+            ref = cal.transform(ref)
+        fast = np.array([_fast_probability(model, cal, x) for x in X])
+        assert np.allclose(fast, ref, atol=1e-10), kind
