@@ -111,6 +111,12 @@ def main():
     jobs = [(c, k, list(e), N, a.jitter) for N, c, k, e in
             itertools.product(a.sizes, ["noisy", "nominal"], ["isotonic", "isotonic_dw"], ep)]
     t0, rows = time.time(), []
+    if os.path.exists(a.out):                 # resume: keep finished jobs, skip them
+        old = pd.read_csv(a.out)
+        done = set(zip(old.condition, old.calibration, old.N, old.epoch))
+        rows = old.to_dict("records")
+        jobs = [j for j in jobs if not all((j[0], j[1], j[3], e) in done for e in j[2])]
+        print(f"resuming: {len(jobs)} jobs left", flush=True)
     with Pool(a.workers) as p:
         for i, r in enumerate(p.imap_unordered(task, jobs)):
             rows += r
