@@ -37,7 +37,8 @@ def test_single_robot_matches_ask_or_act(aoa, family, intent, cond, seed, shift)
     gs, sp = aoa["gs"], aoa["sp"]
     lab = gs.build("cafe", family, intent, seed, cond)
     model, cal = aoa["policy"].load_predictor(MODEL, "mlp", "isotonic_dw", cond)
-    ref = sp.simulate(lab, aoa["policy"].AskOrActPolicy("threshold", model, cal, true_intent=intent),
+    # reference: Ask or Act's own simulate() loop, driving the same (cache-fixed) policy class
+    ref = sp.simulate(lab, aoa["FleetPolicy"](model, cal, mode="independent", true_intent=intent),
                       gs.CONDITIONS[cond]["noise"], 1.5, 1.0, 1.0)
     pol = aoa["FleetPolicy"](model, cal, mode="independent", true_intent=intent)
     out, _, _ = __import__("fleet_qubo.fleet_sim", fromlist=["run_fleet"]).run_fleet(
@@ -65,3 +66,17 @@ def test_joint_request_probability_matches_pool(aoa):
     shifts = [int(round(-t / 0.05)) for t in d.t_deadline]
     run_fleet(labs, pols, gs.CONDITIONS["noisy"]["noise"], shifts, aoa["env"], joint=joint)
     assert np.allclose([seen[i] for i in range(len(labs))], d.p.to_numpy(), atol=1e-4)
+
+
+def test_probability_keeps_updating_after_history_fills(aoa):
+    """Regression: Ask or Act's predict() froze once its 40-observation history was full."""
+    gs, sp = aoa["gs"], aoa["sp"]
+    lab = gs.build("cafe", "clear_cross", "crossing", 7000, "nominal")
+    model, cal = aoa["policy"].load_predictor(MODEL, "mlp", "isotonic_dw", "nominal")
+    pol = aoa["FleetPolicy"](model, cal, mode="independent", true_intent="crossing", p_low=-1.0, p_high=2.0)
+    sp.simulate(lab, pol, 0.03, 1.5, 1.0, 1.0)
+    ps = [d[2] for d in pol.decisions if d[2] != ""]
+    assert len(set(ps)) > 5                      # the fixed policy's probability evolves
+    orig = aoa["policy"].AskOrActPolicy("threshold", model, cal, true_intent="crossing", p_low=-1.0, p_high=2.0)
+    sp.simulate(lab, orig, 0.03, 1.5, 1.0, 1.0)
+    assert len({d[2] for d in orig.decisions if d[2] != ""}) == 1   # documents the original behaviour

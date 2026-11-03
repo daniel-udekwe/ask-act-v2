@@ -39,6 +39,9 @@ MAX_DURATION = 60.0
 def make_policy_class(AskOrActPolicy):
     """Subclass the Ask or Act policy (imported from its repository at run time)."""
 
+    import sys as _sys
+    _compute_features = _sys.modules[AskOrActPolicy.__module__].compute_features
+
     class FleetPolicy(AskOrActPolicy):
         def __init__(self, model, calibrator, mode="independent", **kw):
             super().__init__("threshold", model, calibrator, **kw)
@@ -46,6 +49,36 @@ def make_policy_class(AskOrActPolicy):
             self.assigned = {}          # hid -> GO / STOP / ASK
             self.request = None         # (hid, p) when waiting for the epoch
             self.held_steps = 0
+            self.n_obs = {}             # observations ever added, per pedestrian
+
+        def add_observation(self, hid, t, x, y):
+            super().add_observation(hid, t, x, y)
+            self.n_obs[hid] = self.n_obs.get(hid, 0) + 1
+
+        def predict(self, hid):
+            """Ask or Act's predict(), with its cache fixed.
+
+            The original caches on len(self.obs[hid]). That length stops changing once the
+            40-observation history is full, so every later call returned the first prediction made
+            after the buffer filled: the probability froze at engagement and smoothing never acted.
+            The cache is keyed here on the number of observations ever added; everything else is
+            unchanged."""
+            import numpy as np
+            n = self.n_obs.get(hid, 0)
+            if self.p_cache.get(hid, (None,))[0] == n:
+                return self.p_cache[hid][1]
+            f = _compute_features(self.obs[hid])
+            if f is None:
+                return None
+            p = float(self.model.predict_proba(f.reshape(1, -1))[0, 1])
+            if self.calibrator is not None:
+                p = float(self.calibrator.transform(np.array([p]))[0])
+            hist = self.p_hist.setdefault(hid, [])
+            hist.append(p)
+            del hist[:-self.smooth_n]
+            p = float(np.mean(hist))
+            self.p_cache[hid] = (n, p)
+            return p
 
         def decide(self, t, robot_x):
             if self.mode == "independent":

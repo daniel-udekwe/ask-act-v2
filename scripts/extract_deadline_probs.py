@@ -39,10 +39,13 @@ def main():
     from generate_scenarios import CONDITIONS, ENVS, FAMILIES, build
     from policy import AskOrActPolicy, load_predictor
     from simulate_policies import simulate
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from fleet_qubo.fleet_sim import make_policy_class
+    FixedPolicy = make_policy_class(AskOrActPolicy)        # Ask or Act policy with the cache fixed
 
     ASK_DIST = 0.6
 
-    class ProbeAtDeadline(AskOrActPolicy):
+    class ProbeAtDeadline(FixedPolicy):
         def decide(self, t, robot_x):
             out = super().decide(t, robot_x)
             if self.decisions:
@@ -65,7 +68,7 @@ def main():
                 for seed in range(base + args.seed_start, base + args.seed_start + args.seeds):
                     label = build(env, family, intent, seed, cond)
                     for v, (model, cal) in preds.items():
-                        pol = ProbeAtDeadline("threshold", model, cal, p_low=-1.0, p_high=2.0,
+                        pol = ProbeAtDeadline(model, cal, mode="independent", p_low=-1.0, p_high=2.0,
                                               true_intent=label["intent"])
                         pol.probe = None
                         try:
