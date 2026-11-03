@@ -2,7 +2,8 @@
 
 **Status: DRAFT for review by D. Udekwe and Q. Guo. Not yet frozen.**
 Items marked `[DEV]` are filled from development data before freezing.
-**Open decisions after the probability fix (H3 endpoint, a new α = 0.9 hypothesis): see `DEV_RERUN.md` §6.**
+Changes after the probability fix (agreed by D. Udekwe and Q. Guo, 3 November 2026; see
+`DEV_RERUN.md`): H3 moved to the exploratory list; new confirmatory H4 at α = 0.9.
 
 This plan is fixed before any final run. Every result listed here is reported, whether or not it
 supports our expectations. Any change after the final runs start is recorded in the deviations log
@@ -61,6 +62,8 @@ All methods are paired: every method sees the same scenarios, timing, tracker no
 | `joint` | Queue-aware joint solver, κ = 1.5, q = 1.5 (primary) |
 | `joint_k<κ>` | Joint solver at other κ (frontier) |
 | `joint_budget` | Joint solver with a hard budget B = ⌈N/3⌉ instead of the queue (ablation) |
+| `joint_a` | α-aware joint solver (α = 0.9 in the cost model), κ = 1.5, q = 1.5; run with α = 0.9 answers |
+| `rule_a_matched` | α-aware per-robot rule (band from κ and α), κ = `[DEV]` (N = 6) and `[DEV]` (N = 8), matched to `joint_a`'s question rate; run with α = 0.9 answers |
 
 Calibrations: raw, conventional, decision-aware. Conditions: nominal, noisy. 1,000 epochs per cell.
 
@@ -83,22 +86,29 @@ they are not independent.
 | H1a | N = 6, noisy tracking, decision-aware calibration: `joint` gives lower mean delay than `rule_matched` (superiority), with a collision rate on crossing robots at most 0.5 percentage points higher (non-inferiority). | Delay: one-sided Wilcoxon signed-rank on paired epoch-mean delays. Collisions: one-sided 95% upper bound of the paired difference (joint − rule), epoch-cluster bootstrap, 10,000 resamples; must be below 0.5 pp. Both parts must hold. |
 | H1b | As H1a, for N = 8. | As H1a. |
 | H2 | QAOA (vanilla, depth 3, noiseless, 1,024 shots) on the queue formulation: in at least 80% of instances at each N ∈ {4, 6, 8}, the probability on the optimum is at least 10 times uniform random, and the expected cost over feasible samples is below uniform random's. | Descriptive criterion per N, 20 instances each, with Clopper-Pearson 95% intervals on the share. |
-| H3 | N = 6, noisy tracking, `joint`: the collision rate on crossing robots differs between decision-aware and conventional calibration. Direction from development data: `[DEV]`. | Two-sided exact McNemar on paired crossing robots. |
+| H4a | N = 6, noisy, decision-aware, operator answers correct with probability α = 0.9: `joint_a` gives lower mean delay than `rule_a_matched`, with a collision rate on crossing robots at most 0.5 percentage points higher. | As H1a. |
+| H4b | As H4a, for N = 8. | As H1a. |
 
-Holm correction across the superiority p-values of H1a, H1b and H3. H2 is a descriptive
-criterion and is not part of the family. The matched question rates are reported. If on final
-data `rule_matched` and `joint` differ by more than 10% in questions per epoch, this is reported as
+Holm correction across the delay-superiority p-values of H1a, H1b, H4a and H4b. Each
+hypothesis also requires its collision non-inferiority bound. H2 is a descriptive criterion and is
+not part of the family. At α = 1 collisions may be zero for both methods; the bound is then 0 pp
+and non-inferiority holds, which is reported as such. The matched question rates are reported. If on final
+data a matched rule and its joint method differ by more than 10% in questions per epoch, this is reported as
 a deviation; κ* is not re-tuned on final data.
 
 ## 7. Secondary and exploratory analyses (all reported, none confirmatory)
 
 1. Pareto frontiers of questions per epoch against collisions and delay, for both policy
    families, N = 6 and 8, both conditions and calibrations.
-2. α = 0.9 (imperfect answers) for `joint` and `rule_matched`.
+2. α = 0.9 Pareto frontiers for the α-aware methods, N = 6 and 8, both calibrations.
 3. `aoa_band` against all other methods.
 4. Budget ablation (`joint_budget`) against `joint`.
 5. QAOA variants (warm start, CVaR), N = 10, and the budget formulation (slack and unbalanced).
 6. QAOA under the `ibm_kingston` noise model, N = 4 and 6, depths 1-2.
+7. Calibration (formerly H3): `joint`, N = 6, noisy, decision-aware against conventional
+   calibration: collisions (two-sided exact McNemar on paired crossing robots, if any events),
+   delay and questions per epoch, at α = 1 and α = 0.9.
+8. Mis-specified solver: `joint` (assuming α = 1) run with α = 0.9 answers.
 
 ## 8. Hardware
 
@@ -122,4 +132,4 @@ Agreement criteria `[DEV, after the v2 development validation]`:
 
 | Date | Change | Reason |
 | --- | --- | --- |
-| | | |
+| 3 Nov 2026 (before freezing) | H3 moved to exploratory; H4a/H4b added | Corrected probabilities give no collisions at α = 1 (`DEV_RERUN.md`) |
