@@ -104,3 +104,15 @@ summaries).
 
 The same frozen probability is in the Ask or Act closed-loop evaluation. Its collision results
 are likely to change materially after the fix. The Ask or Act repository has not been modified.
+
+## 8. H4 matching (added after the 3 November decision)
+
+`results/dev_matching_alpha.csv` (α = 0.9 answers, α-aware joint solver κ = 1.5, q = 1.5, and α-aware
+rule; N = 6 and 8, noisy, decision-aware, 500 epochs, seeds 4 980 000+):
+
+| N | joint questions/epoch | matched κ* | rule delay (s) | joint delay (s) | collisions joint / rule |
+|---|---|---|---|---|---|
+| 6 | 0.62 | **6.04** | ≈ 6.12 | 4.35 | 2 / 0 of 1,700 crossing |
+| 8 | 0.74 | **6.20** | ≈ 6.29 | 4.50 | 2 / 0 of 2,210 crossing |
+
+The joint collision rate (about 0.1%) is well inside the 0.5 pp margin on development data.

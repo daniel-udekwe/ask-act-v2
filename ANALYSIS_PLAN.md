@@ -63,7 +63,7 @@ All methods are paired: every method sees the same scenarios, timing, tracker no
 | `joint_k<κ>` | Joint solver at other κ (frontier) |
 | `joint_budget` | Joint solver with a hard budget B = ⌈N/3⌉ instead of the queue (ablation) |
 | `joint_a` | α-aware joint solver (α = 0.9 in the cost model), κ = 1.5, q = 1.5; run with α = 0.9 answers |
-| `rule_a_matched` | α-aware per-robot rule (band from κ and α), κ = `[DEV]` (N = 6) and `[DEV]` (N = 8), matched to `joint_a`'s question rate; run with α = 0.9 answers |
+| `rule_a_matched` | α-aware per-robot rule (band from κ and α), κ* = 6.04 (N = 6) and 6.20 (N = 8) (`results/dev_matching_alpha.csv`), matched to `joint_a`'s question rate; run with α = 0.9 answers |
 
 Calibrations: raw, conventional, decision-aware. Conditions: nominal, noisy. 1,000 epochs per cell.
 
