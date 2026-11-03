@@ -14,7 +14,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import pareto  # noqa: E402
 
 pareto.EPOCH_SEED = 4_900_000                     # fresh development epoch block
-GRID = [3.5, 3.75, 4.0, 4.25, 4.5, 4.75, 5.0, 5.25, 5.5]
+GRID = [5.0, 5.25, 5.5, 5.75, 6.0, 6.25, 6.5, 6.75, 7.0]   # bracket the joint rate (Pareto re-run)
 pareto.methods = lambda: [("indep", k, 0.0) for k in GRID] + [("jq", 1.5, 1.5)]
 
 if __name__ == "__main__":
