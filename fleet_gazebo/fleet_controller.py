@@ -74,6 +74,7 @@ class FleetController(Node):
         self.result_file, self.decisions_file = p("result_file"), p("decisions_file")
         self.obs_noise = p("obs_noise")
         self.rng = random.Random(f"obs-{p('noise_seed')}")
+        self.noise, self.last_slot, self.t_plan = [], -1, None
         model, cal = load_predictor(p("model_file"), p("model_name"), p("calibration"), p("calib_condition"))
         self.pol = FleetPolicy(model, cal, mode=self.mode, p_low=p("p_low"), p_high=p("p_high"),
                                engage_dist=p("engage_dist"), ask_dist=p("ask_dist"), clear_dist=p("clear_dist"),
@@ -120,6 +121,7 @@ class FleetController(Node):
     def on_go(self, _msg):
         if self.t_go is None and self.state == "READY":
             self.t_go, self.state = self.now(), "DELAY"
+            self.t_plan = self.t_go + self.start_delay
 
     def on_answer(self, msg):
         a = json.loads(msg.data)
@@ -138,13 +140,25 @@ class FleetController(Node):
             for hx, hy in self.humans.values():
                 self.min_dist = min(self.min_dist, math.hypot(hx - self.pose[0], hy - self.pose[1]))
 
+    def noise_at(self, j):
+        """Noise for observation slot j (slot 0 = 2 s before the robot's start, then every 0.1 s).
+        Drawn in slot order from Random("obs-<scenario>"), exactly as the offline simulator draws
+        it, so the same slot always gets the same noise even if a tracker tick is late or skipped."""
+        while len(self.noise) <= j:
+            self.noise.append((self.rng.gauss(0.0, self.obs_noise), self.rng.gauss(0.0, self.obs_noise)))
+        return self.noise[j]
+
     def observe(self, t_abs):
-        if self.last_obs_t is not None and t_abs - self.last_obs_t < 1.0 / OBS_RATE - 1e-6:
+        """Record noisy pedestrian positions at OBS_RATE, in the robot's own episode time."""
+        t_local = t_abs - self.t_plan
+        j = int(round((t_local + 2.0) * OBS_RATE))
+        if j < 0 or j <= self.last_slot:
             return
-        self.last_obs_t = t_abs
+        self.last_slot = j
+        t_slot = j / OBS_RATE - 2.0
         for hid, (x, y) in self.humans.items():
-            self.pol.add_observation(hid, t_abs, x + self.rng.gauss(0.0, self.obs_noise),
-                                     y + self.rng.gauss(0.0, self.obs_noise))
+            dx, dy = self.noise_at(j)
+            self.pol.add_observation(hid, t_slot, x + dx, y + dy)
 
     # ------------------------------------------------------------------ output
     def stop(self):
@@ -202,7 +216,7 @@ class FleetController(Node):
             return
         if self.state == "DELAY":
             if t_abs - self.t_go >= self.start_delay:
-                self.t_start, self.state = t_abs, "DRIVING"
+                self.t_start, self.state = self.t_plan, "DRIVING"
                 self.x_start_drive = self.pose[0]
             return
 

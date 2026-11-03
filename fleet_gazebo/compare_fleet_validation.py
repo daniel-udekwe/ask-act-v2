@@ -138,6 +138,9 @@ def main():
     print(f"\nProbability at the deadline, Gazebo vs offline ({has.sum()} robot-runs with both):")
     print(f"  |difference| median {c.dp[has].median():.3f}, 90th percentile {c.dp[has].quantile(0.9):.3f}, "
           f"max {c.dp[has].max():.3f}; within 0.05: {(c.dp[has] <= 0.05).mean():.1%}")
+    for cond, x in c[has].groupby("condition"):
+        print(f"  {cond}: median {x.dp.median():.3f}, 90th percentile {x.dp.quantile(0.9):.3f}, "
+              f"within 0.05: {(x.dp <= 0.05).mean():.1%}")
     j = c[(c.method == "joint") & has]
     if len(j):
         print(f"  joint mode: actions agree {j.act_agree.mean():.1%} overall; "
