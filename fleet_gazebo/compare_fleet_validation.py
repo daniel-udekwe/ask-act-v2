@@ -29,6 +29,23 @@ FLEET = os.path.dirname(HERE)
 AOA = os.path.join(HOME, "ask_or_act")
 
 
+def deadline_p(rows):
+    """First smoothed probability at or inside the decision deadline (0.6 m ahead)."""
+    for r in rows:
+        t, hid, p, action, why, ahead, oy = r
+        if p != "" and p is not None and float(ahead) <= 0.6:
+            return float(p)
+    return None
+
+
+def gazebo_decisions(path):
+    import csv as _csv
+    if not os.path.exists(path):
+        return []
+    with open(path) as f:
+        return [tuple(r.values()) for r in _csv.DictReader(f)]
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--runs", default=os.path.join(HERE, "runs"))
@@ -56,6 +73,24 @@ def main():
 
     g = pd.read_csv(os.path.join(a.runs, "results.csv"))
     g["collision"] = g.collision.astype(str).str.lower().eq("true")
+    # rows from the patched runner carry "valid"; older rows get the same rules after the fact
+    stuck = (g.outcome == "timed out") & (g.stopped_time == 0) & (g.n_asks == 0) & ~g.collision
+    rule = ~(g.min_dist.isna() | stuck)
+    if "valid" in g:
+        flag = g.valid.astype(str).str.lower()
+        g["valid"] = flag.eq("true").where(flag.isin(["true", "false"]), rule)
+    else:
+        g["valid"] = rule
+    full = g.groupby(["epoch", "condition", "method"]).robot.transform("size") == g.N
+    g["valid"] &= full & g.groupby(["epoch", "condition", "method"]).valid.transform("all")
+    bad = g[~g.valid].drop_duplicates(["epoch", "condition", "method"])
+    print(f"Infrastructure failures excluded: {len(bad)} epoch groups "
+          f"({(~g.valid).sum()} robot-runs): {[f'{e}:{c}:{m}' for e, c, m in zip(bad.epoch, bad.condition, bad.method)]}")
+    expected = g.drop_duplicates(["epoch", "condition"]).shape[0] * g.method.nunique()
+    found = g.drop_duplicates(["epoch", "condition", "method"]).shape[0]
+    if found < expected:
+        print(f"Missing epoch groups (no results at all): {expected - found}")
+    g = g[g.valid]
     rows = []
     for (e, cond, m), grp in g.groupby(["epoch", "condition", "method"]):
         tag = f"e{int(e):03d}_{cond}"
@@ -70,12 +105,16 @@ def main():
             o, lab = off[r.robot], labels[r.robot]
             free = lab["robot_delay"] + (gs.ROBOT["start"][0] - gs.ROBOT["goal"][0] - 0.15) / gs.ROBOT["speed"]
             assigned = json.loads(r.assigned).get("1", -1) if isinstance(r.assigned, str) else -1
+            att = int(getattr(r, "attempt", 0) or 0)
+            ep_dir = os.path.join(a.runs, tag, m if att == 0 else f"{m}_retry{att}")
+            p_gz = deadline_p(gazebo_decisions(os.path.join(ep_dir, f"decisions_{r.robot}.csv")))
+            p_sim = deadline_p(pols[r.robot].decisions)
             rows.append(dict(epoch=e, condition=cond, method=m, robot=r.robot, intent=r.intent,
                              gz_collision=bool(r.collision), sim_collision=bool(o["collision"]),
                              gz_asks=r.n_asks, sim_asks=o["n_asks"],
                              gz_delay=r.duration - free, sim_delay=o["delay"],
                              gz_min_dist=r.min_dist, sim_min_dist=o["min_dist"],
-                             gz_action=assigned, sim_action=o["action"]))
+                             gz_action=assigned, sim_action=o["action"], gz_p=p_gz, sim_p=p_sim))
     c = pd.DataFrame(rows)
     c.to_csv(os.path.join(a.runs, "comparison.csv"), index=False)
     c["col_agree"] = c.gz_collision == c.sim_collision
@@ -92,6 +131,21 @@ def main():
                                 c.sim_collision.sum(), c.delay_diff.mean(), c.delay_diff.std()]
     pd.set_option("display.width", 160)
     print(t.round(3).to_string())
+    # where do decisions diverge? compare the probability each robot had at its deadline
+    c["dp"] = (c.gz_p - c.sim_p).abs()
+    has = c.dp.notna()
+    print(f"\nProbability at the deadline, Gazebo vs offline ({has.sum()} robot-runs with both):")
+    print(f"  |difference| median {c.dp[has].median():.3f}, 90th percentile {c.dp[has].quantile(0.9):.3f}, "
+          f"max {c.dp[has].max():.3f}; within 0.05: {(c.dp[has] <= 0.05).mean():.1%}")
+    j = c[(c.method == "joint") & has]
+    if len(j):
+        print(f"  joint mode: actions agree {j.act_agree.mean():.1%} overall; "
+              f"{j[j.dp <= 0.05].act_agree.mean():.1%} when |dp| <= 0.05, "
+              f"{j[j.dp > 0.05].act_agree.mean():.1%} when |dp| > 0.05")
+        eps = j.groupby(["epoch", "condition"]).agg(all_p_close=("dp", lambda x: (x <= 0.05).all()),
+                                                    all_actions_agree=("act_agree", "all"))
+        print(f"  epochs where every robot's p is within 0.05: {eps.all_p_close.mean():.1%}; "
+              f"of those, all actions agree in {eps[eps.all_p_close].all_actions_agree.mean():.1%}")
     ok = (c.col_agree.mean() >= 0.95, c.ask_agree.mean() >= 0.90,
           c[c.method == "joint"].act_agree.mean() >= 0.90 if (c.method == "joint").any() else True)
     print("\nCriteria (collision >= 95%, questions >= 90%, joint actions >= 90%):",

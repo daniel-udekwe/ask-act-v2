@@ -60,8 +60,31 @@ def quiet(cmd):
 
 
 def kill_sim():
-    quiet(["killall", "-9", "gzserver", "gzclient"])
-    quiet(["pkill", "-9", "-f", "fleet_controller.py|fleet_pedestrians.py|fleet_coordinator.py"])
+    """Kill everything from the previous epoch and wait until it is really gone (up to 30 s)."""
+    for _ in range(30):
+        quiet(["killall", "-9", "gzserver", "gzclient"])
+        quiet(["pkill", "-9", "-f", "fleet_controller.py|fleet_pedestrians.py|fleet_coordinator.py|spawn_entity"])
+        alive = subprocess.run(["pgrep", "-f", "gzserver|fleet_controller.py|fleet_pedestrians.py|fleet_coordinator.py"],
+                               stdout=subprocess.DEVNULL).returncode == 0
+        if not alive:
+            time.sleep(2.0)                  # let Gazebo release its port and shared memory
+            return
+        time.sleep(1.0)
+    print("   warning: processes from the previous epoch are still running")
+
+
+def invalid_reasons(res):
+    """Infrastructure failures (not robot behaviour). An empty list means the epoch is valid."""
+    why = []
+    for i, r in enumerate(res):
+        if r is None:
+            why.append(f"robot {i}: no result")
+        elif r.get("min_dist") is None or r.get("n_human_msgs", 1) == 0:
+            why.append(f"robot {i}: no pedestrian data")
+        elif (r["outcome"] == "timed out" and r.get("distance_m") is not None and r["distance_m"] < 0.5
+              and (r["min_dist"] is None or r["min_dist"] >= 0.4)):
+            why.append(f"robot {i}: never moved")
+    return why
 
 
 def stop(p):
@@ -160,6 +183,8 @@ def main():
     ap.add_argument("--out", default=os.path.join(HERE, "runs"))
     ap.add_argument("--timeout", type=float, default=600.0, help="wall-clock s per epoch")
     ap.add_argument("--gui", action="store_true")
+    ap.add_argument("--retries", type=int, default=1, help="re-runs of an epoch after an infrastructure failure")
+    ap.add_argument("--redo", default="", help="drop and re-run groups, e.g. 7:nominal:joint,13:noisy:indep")
     a = ap.parse_args()
     sys.path.insert(0, AOA)
     sys.path.insert(0, HERE)
@@ -175,7 +200,15 @@ def main():
     res_csv = os.path.join(a.out, "results.csv")
     cols = ["epoch", "condition", "method", "N", "robot", "scenario", "family", "intent", "shift_steps",
             "robot_delay", "outcome", "duration", "min_dist", "collision", "n_asks", "stopped_time",
-            "assigned", "held_s", "fallback"]
+            "assigned", "held_s", "fallback", "distance_m", "attempt", "valid", "invalid_reason"]
+    if a.redo and os.path.exists(res_csv):                     # drop the groups to re-run
+        import pandas as pd
+        drop = {(int(e), c, m) for e, c, m in (x.split(":") for x in a.redo.split(","))}
+        old = pd.read_csv(res_csv)
+        keep = [(int(e), c, m) not in drop for e, c, m in zip(old.epoch, old.condition, old.method)]
+        old = old[keep].reindex(columns=cols)
+        old.to_csv(res_csv, index=False)
+        print(f"dropped {len(keep) - sum(keep)} rows for re-run: {sorted(drop)}")
     done = set()
     if os.path.exists(res_csv):
         done = {(int(r["epoch"]), r["condition"], r["method"]) for r in csv.DictReader(open(res_csv))}
@@ -197,10 +230,16 @@ def main():
                     if (e, cond, m) in done:
                         continue
                     print(f"epoch {e} {cond} {m}: {[l['id'] for l in labels]}", flush=True)
-                    res = run_epoch(labels, delays, cond, m, world, os.path.join(a.out, ep_tag, m), labels_file, a)
+                    for attempt in range(a.retries + 1):
+                        ep_dir = os.path.join(a.out, ep_tag, m if attempt == 0 else f"{m}_retry{attempt}")
+                        res = run_epoch(labels, delays, cond, m, world, ep_dir, labels_file, a)
+                        why = invalid_reasons(res)
+                        if not why:
+                            break
+                        print(f"   infrastructure failure ({'; '.join(why)}); logs in {ep_dir}", flush=True)
                     for i, (lab, r) in enumerate(zip(labels, res)):
                         if r is None:
-                            print(f"   robot {i}: no result; see {os.path.join(a.out, ep_tag, m)}")
+                            print(f"   robot {i}: no result; see {ep_dir}")
                             continue
                         w.writerow(dict(epoch=e, condition=cond, method=m, N=a.N, robot=i, scenario=lab["id"],
                                         family=lab["family"], intent=lab["intent"], shift_steps=shifts[i],
@@ -209,7 +248,8 @@ def main():
                                         collision=r["min_dist"] is not None and r["min_dist"] < 0.4,
                                         n_asks=r["n_asks"], stopped_time=r["stopped_time"],
                                         assigned=json.dumps(r["assigned"]), held_s=r["held_s"],
-                                        fallback=r["fallback"]))
+                                        fallback=r["fallback"], distance_m=r.get("distance_m"),
+                                        attempt=attempt, valid=not why, invalid_reason="; ".join(why)))
                     f.flush()
     print("Results in", res_csv)
 

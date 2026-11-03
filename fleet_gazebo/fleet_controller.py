@@ -97,6 +97,7 @@ class FleetController(Node):
         self.released, self.request_sent = False, False
         self.humans, self.last_obs_t, self.last_step_t = {}, None, None
         self.stopped_time, self.min_dist = 0.0, float("inf")
+        self.n_human_msgs, self.x_start_drive = 0, None
         self.create_timer(0.05, self.step)
         self.create_timer(0.5, self.announce)
         self.get_logger().info(f"Robot {self.index}: mode {self.mode}, scenario {p('scenario_id')}")
@@ -133,6 +134,7 @@ class FleetController(Node):
         for a in msg.agents:
             self.humans[a.id] = (a.position.position.x, a.position.position.y)
         if self.state == "DRIVING" and self.pose is not None:
+            self.n_human_msgs += 1
             for hx, hy in self.humans.values():
                 self.min_dist = min(self.min_dist, math.hypot(hx - self.pose[0], hy - self.pose[1]))
 
@@ -160,7 +162,9 @@ class FleetController(Node):
                    assigned={str(k): v for k, v in self.pol.assigned.items()},
                    held_s=round(self.pol.held_steps * 0.05, 3),
                    fallback=any("no answer" in w for w in whys),
-                   robot_start_delay=self.robot_delay)
+                   robot_start_delay=self.robot_delay, n_human_msgs=self.n_human_msgs,
+                   distance_m=None if self.x_start_drive is None or self.pose is None
+                   else round(self.x_start_drive - self.pose[0], 3))
         if self.result_file:
             json.dump(res, open(self.result_file, "w"), indent=2)
         if self.decisions_file:
@@ -199,6 +203,7 @@ class FleetController(Node):
         if self.state == "DELAY":
             if t_abs - self.t_go >= self.start_delay:
                 self.t_start, self.state = t_abs, "DRIVING"
+                self.x_start_drive = self.pose[0]
             return
 
         x, y, yaw = self.pose
