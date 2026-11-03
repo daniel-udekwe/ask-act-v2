@@ -1,0 +1,11 @@
+calibration,kind,kappa,q,crossing,collisions,q_per_epoch,delay
+isotonic,indep,0.5,0.0,671,3,3.535,4.264968333333333
+isotonic,indep,1.5,0.0,671,1,2.935,4.4994266666666665
+isotonic,indep,3.0,0.0,671,0,2.56,5.13101
+isotonic,jq,0.5,0.0,671,3,2.405,3.9098433333333333
+isotonic,jq,1.5,1.5,671,1,1.095,4.162218333333334
+isotonic_dw,indep,0.5,0.0,671,1,2.815,4.706301666666667
+isotonic_dw,indep,1.5,0.0,671,0,2.545,5.183509999999999
+isotonic_dw,indep,3.0,0.0,671,0,2.38,6.386426666666666
+isotonic_dw,jq,0.5,0.0,671,2,1.36,4.148968333333333
+isotonic_dw,jq,1.5,1.5,671,0,0.62,4.317635

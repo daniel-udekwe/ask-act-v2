@@ -2,6 +2,7 @@
 
 **Status: DRAFT for review by D. Udekwe and Q. Guo. Not yet frozen.**
 Items marked `[DEV]` are filled from development data before freezing.
+**Open decisions after the probability fix (H3 endpoint, a new α = 0.9 hypothesis): see `DEV_RERUN.md` §6.**
 
 This plan is fixed before any final run. Every result listed here is reported, whether or not it
 supports our expectations. Any change after the final runs start is recorded in the deviations log
@@ -56,7 +57,7 @@ All methods are paired: every method sees the same scenarios, timing, tracker no
 | --- | --- |
 | `aoa_band` | Ask or Act threshold rule, fixed band [0.2, 0.8] (current practice) |
 | `rule_k<κ>` | Each robot's own cost-model optimum (band from κ), sharing the operator; κ ∈ {0.5, 1, 2, …, 7} |
-| `rule_matched` | `rule_k<κ*>` with κ* = `[DEV]` (N = 6) and `[DEV]` (N = 8), matched to the joint question rate |
+| `rule_matched` | `rule_k<κ*>` with κ* = 5.95 (N = 6) and 6.15 (N = 8) (`results/dev_matching.csv`), matched to the joint question rate |
 | `joint` | Queue-aware joint solver, κ = 1.5, q = 1.5 (primary) |
 | `joint_k<κ>` | Joint solver at other κ (frontier) |
 | `joint_budget` | Joint solver with a hard budget B = ⌈N/3⌉ instead of the queue (ablation) |
