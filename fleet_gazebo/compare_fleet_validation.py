@@ -105,7 +105,8 @@ def main():
             o, lab = off[r.robot], labels[r.robot]
             free = lab["robot_delay"] + (gs.ROBOT["start"][0] - gs.ROBOT["goal"][0] - 0.15) / gs.ROBOT["speed"]
             assigned = json.loads(r.assigned).get("1", -1) if isinstance(r.assigned, str) else -1
-            att = int(getattr(r, "attempt", 0) or 0)
+            att = getattr(r, "attempt", 0)
+            att = 0 if pd.isna(att) else int(att)            # rows from before the retry column existed
             ep_dir = os.path.join(a.runs, tag, m if att == 0 else f"{m}_retry{att}")
             p_gz = deadline_p(gazebo_decisions(os.path.join(ep_dir, f"decisions_{r.robot}.csv")))
             p_sim = deadline_p(pols[r.robot].decisions)
