@@ -1,7 +1,6 @@
 # Fleet Ask or Act with QAOA: pre-specified analysis plan
 
-**Status: DRAFT for review by D. Udekwe and Q. Guo. Not yet frozen.**
-All development values are filled in (κ*, H4 κ*, Gazebo criteria).
+**Status: FROZEN. Approved by D. Udekwe and Q. Guo on 4 November 2026; tagged `v2-prereg`.**
 Changes after the probability fix (agreed by D. Udekwe and Q. Guo, 3 November 2026; see
 `DEV_RERUN.md`): H3 moved to the exploratory list; new confirmatory H4 at α = 0.9.
 
@@ -65,7 +64,18 @@ All methods are paired: every method sees the same scenarios, timing, tracker no
 | `joint_a` | α-aware joint solver (α = 0.9 in the cost model), κ = 1.5, q = 1.5; run with α = 0.9 answers |
 | `rule_a_matched` | α-aware per-robot rule (band from κ and α), κ* = 6.04 (N = 6) and 6.20 (N = 8) (`results/dev_matching_alpha.csv`), matched to `joint_a`'s question rate; run with α = 0.9 answers |
 
-Calibrations: raw, conventional, decision-aware. Conditions: nominal, noisy. 1,000 epochs per cell.
+1,000 epochs per cell, in two stages from the same epochs (`scripts/final_closed_loop.py`):
+
+- **Confirmatory:** N = 6 and 8, noisy tracking, decision-aware calibration; `rule_matched` and
+  `joint` (α = 1 answers), `rule_a_matched` and `joint_a` (α = 0.9 answers).
+- **Exploratory:** N = 6 and 8; nominal and noisy; raw, conventional and decision-aware
+  calibration; 33 methods: `aoa_band`, `rule_matched`, `joint`, `rule_k<κ>` and `joint_k<κ>` for
+  κ ∈ {0.5, 1, 2, …, 7}, `joint_budget`; with α = 0.9 answers `rule_a_matched`, `joint_a`,
+  α-aware `rule_a_k<κ>` for κ ∈ {0.5, 1.5, 3, 4, 5, 6, 6.5}, `joint_a_k<κ>` for κ ∈ {0.5, 3, 5},
+  and `joint_misspec` (solver assumes α = 1).
+
+In every cell the scenarios and decision timing are drawn from the decision-aware entry of the
+final pool, as in development.
 
 ## 5. Metrics
 
@@ -85,7 +95,7 @@ they are not independent.
 | --- | --- | --- |
 | H1a | N = 6, noisy tracking, decision-aware calibration: `joint` gives lower mean delay than `rule_matched` (superiority), with a collision rate on crossing robots at most 0.5 percentage points higher (non-inferiority). | Delay: one-sided Wilcoxon signed-rank on paired epoch-mean delays. Collisions: one-sided 95% upper bound of the paired difference (joint − rule), epoch-cluster bootstrap, 10,000 resamples; must be below 0.5 pp. Both parts must hold. |
 | H1b | As H1a, for N = 8. | As H1a. |
-| H2 | QAOA (vanilla, depth 3, noiseless, 1,024 shots) on the queue formulation: in at least 80% of instances at each N ∈ {4, 6, 8}, the probability on the optimum is at least 10 times uniform random, and the expected cost over feasible samples is below uniform random's. | Descriptive criterion per N, 20 instances each, with Clopper-Pearson 95% intervals on the share. |
+| H2 | QAOA (vanilla, depth 3, noiseless, 1,024 shots) on the queue formulation: in at least 80% of instances at each N ∈ {4, 6, 8}, the probability on the optimum is at least 10 times uniform random, and the expected cost over feasible samples is below uniform random's. | Descriptive criterion per N, 20 instances each, with Clopper-Pearson 95% intervals on the share. Probabilities and expected costs are computed exactly from the statevector; uniform random's feasible expected cost is the mean over all 3ᴺ action vectors; the 1,024 shots give the best-sample gap (`scripts/final_qaoa.py`). |
 | H4a | N = 6, noisy, decision-aware, operator answers correct with probability α = 0.9: `joint_a` gives lower mean delay than `rule_a_matched`, with a collision rate on crossing robots at most 0.5 percentage points higher. | As H1a. |
 | H4b | As H4a, for N = 8. | As H1a. |
 
@@ -95,6 +105,13 @@ not part of the family. At α = 1 collisions may be zero for both methods; the b
 and non-inferiority holds, which is reported as such. The matched question rates are reported. If on final
 data a matched rule and its joint method differ by more than 10% in questions per epoch, this is reported as
 a deviation; κ* is not re-tuned on final data.
+
+### Analysis code
+
+`scripts/fleet_final_stats.py` computes every confirmatory test and the section 7 tables from the
+final output files and writes `results/final/REPORT.md`. Bootstrap seed 8 300 000. Run order after
+tagging: (1) final pool, (2) confirmatory closed loop, (3) H2, (4) exploratory closed loop,
+(5) hardware (user's machine), (6) Gazebo final validation (VM), (7) statistics.
 
 ## 7. Secondary and exploratory analyses (all reported, none confirmatory)
 
@@ -142,5 +159,6 @@ The independent method in Gazebo is the per-robot cost rule at κ = 1.5.
 
 | Date | Change | Reason |
 | --- | --- | --- |
+| 4 Nov 2026 (before freezing) | Final method sets per stage and the H2 computation stated explicitly | Written with the final scripts; tested on development data only |
 | 4 Nov 2026 (before freezing) | Gazebo joint criterion based on assignment cost, not raw action agreement | v2: Gazebo robots lag ≈ 0.14 s, so near-tied robots swap who asks (`DEV_RERUN.md` §10) |
 | 3 Nov 2026 (before freezing) | H3 moved to exploratory; H4a/H4b added | Corrected probabilities give no collisions at α = 1 (`DEV_RERUN.md`) |
