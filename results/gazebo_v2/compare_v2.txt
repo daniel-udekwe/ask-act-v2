@@ -1,0 +1,17 @@
+Infrastructure failures excluded: 0 epoch groups (0 robot-runs): []
+                  robot_runs  collision_agreement  question_agreement  action_agreement  gz_collisions  sim_collisions  delay_diff_mean  delay_diff_sd
+condition method                                                                                                                                      
+noisy     indep         80.0                  1.0               0.988             1.000            0.0             0.0            0.058          0.592
+          joint         80.0                  1.0               0.762             0.762            0.0             0.0            0.299          1.572
+nominal   indep         80.0                  1.0               0.962             1.000            0.0             0.0            0.108          0.445
+          joint         80.0                  1.0               0.912             0.912            0.0             0.0            0.011          0.432
+all       all          320.0                  1.0               0.906             0.838            0.0             0.0            0.119          0.898
+
+Probability at the deadline, Gazebo vs offline (310 robot-runs with both):
+  |difference| median 0.024, 90th percentile 0.138, max 0.346; within 0.05: 71.3%
+  noisy: median 0.035, 90th percentile 0.144, within 0.05: 62.4%
+  nominal: median 0.019, 90th percentile 0.080, within 0.05: 80.4%
+  joint mode: actions agree 84.3% overall; 94.1% when |dp| <= 0.05, 56.1% when |dp| > 0.05
+  epochs where every robot's p is within 0.05: 35.0%; of those, all actions agree in 85.7%
+
+Criteria (collision >= 95%, questions >= 90%, joint actions >= 90%): NOT MET (True, True, False)

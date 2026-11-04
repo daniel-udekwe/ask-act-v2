@@ -125,3 +125,27 @@ The joint collision rate (about 0.1%) is well inside the 0.5 pp margin on develo
 - **`ibm_kingston` noise model** (queue, 3 instances, `results/queue_qaoa_noisy.csv`): depth 2 lift
   12× (N = 4) and 33× (N = 6) under noise; the feasible share falls from 0.99/0.98 to 0.89/0.79.
   Very close to the pre-fix numbers; supports depths 1-2 for hardware as pre-registered.
+
+## 10. Gazebo v2 development validation (4 November 2026)
+
+320 robot-runs (`results/gazebo_v2/`); two groups re-run once after an infrastructure failure,
+none excluded. Replaying the comparison here with the repository's predictor reproduces the
+VM's table exactly.
+
+- Collision outcome agrees in 100% of robot-runs (no collisions on either side).
+- Question count: independent rule 97.5%; joint 84% (nominal 91%, noisy 76%).
+- Joint action agreement 84%. **Cause:** the Gazebo robots run about 0.025 m (≈ 0.14 s)
+  behind the offline robots from the start, so they reach the deadline 0.10-0.15 s later
+  (`scripts/gazebo_timing_check.py`). At matched times the probabilities agree closely
+  (median gap 0.01-0.02), but the probability moves fast near the deadline, especially with
+  noisy tracking, so the deadline value differs.
+- 24 of the 26 joint disagreements are ask/stop swaps between robots with p near 0.5, usually
+  in pairs within one epoch (which robot asks). Under the offline probabilities, the Gazebo
+  assignment costs at most 3 units (one question) more in 39 of 40 epochs
+  (`scripts/gazebo_near_ties.py`). The exception (epoch 8, nominal) is a non-crossing
+  pedestrian whose probability fell from 0.13 to 0.02 in the step after the deadline;
+  Gazebo's robot went, which was correct.
+
+Criteria written into `ANALYSIS_PLAN.md` §9 and `compare_fleet_validation.py`: collision ≥ 95%,
+independent questions ≥ 90%, joint epochs within one question's cost ≥ 90%, mean delay
+difference within ±0.5 s. All four are met on v2.

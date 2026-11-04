@@ -54,11 +54,12 @@ python3 compare_fleet_validation.py --runs runs_final
 Each epoch takes about 1-2 minutes, so the full validation is roughly 2-3 hours. The runs are
 resumable.
 
-## Agreement criteria (to be frozen with the analysis plan)
+## Agreement criteria (frozen with the analysis plan, section 9)
 
 - Collision outcome agrees for at least 95% of robot-runs.
-- Question count agrees for at least 90% of robot-runs.
-- In joint mode, the assigned action agrees for at least 90% of robots.
+- Independent rule: question count agrees for at least 90% of robot-runs.
+- Joint: in at least 90% of epochs the Gazebo assignment costs at most one question (3 units) more than offline, under the offline probabilities.
+- Mean delay difference within ±0.5 s for every condition and method.
 
 ## If the smoke test fails
 

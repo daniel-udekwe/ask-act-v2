@@ -56,7 +56,7 @@ def main():
     import policy as aoa_policy
     import simulate_policies as sp
     from fleet_qubo.fleet_sim import run_fleet, make_policy_class, DT
-    from fleet_qubo.instances import Instance
+    from fleet_qubo.instances import Instance, true_cost
     from fleet_qubo.classical import exhaustive
     from epochs import band
     from run_fleet_gazebo import KAPPA, Q
@@ -115,7 +115,8 @@ def main():
                              gz_asks=r.n_asks, sim_asks=o["n_asks"],
                              gz_delay=r.duration - free, sim_delay=o["delay"],
                              gz_min_dist=r.min_dist, sim_min_dist=o["min_dist"],
-                             gz_action=assigned, sim_action=o["action"], gz_p=p_gz, sim_p=p_sim))
+                             gz_action=assigned, sim_action=o["action"], gz_p=p_gz, sim_p=p_sim,
+                             sim_p_request=pols[r.robot].request[1] if pols[r.robot].request else np.nan))
     c = pd.DataFrame(rows)
     c.to_csv(os.path.join(a.runs, "comparison.csv"), index=False)
     c["col_agree"] = c.gz_collision == c.sim_collision
@@ -150,11 +151,27 @@ def main():
                                                     all_actions_agree=("act_agree", "all"))
         print(f"  epochs where every robot's p is within 0.05: {eps.all_p_close.mean():.1%}; "
               f"of those, all actions agree in {eps[eps.all_p_close].all_actions_agree.mean():.1%}")
-    ok = (c.col_agree.mean() >= 0.95, c.ask_agree.mean() >= 0.90,
-          c[c.method == "joint"].act_agree.mean() >= 0.90 if (c.method == "joint").any() else True)
-    print("\nCriteria (collision >= 95%, questions >= 90%, joint actions >= 90%):",
-          "MET" if all(ok) else f"NOT MET {ok}")
-
+    # frozen criteria (ANALYSIS_PLAN.md section 9, set from the v2 development validation)
+    jj = c[(c.method == "joint") & (c.gz_action >= 0) & (c.sim_action >= 0) & c.sim_p_request.notna()]
+    extra = []
+    for _, g in jj.groupby(["epoch", "condition"]):
+        inst = Instance(p=g.sim_p_request.to_numpy(float), B=len(g), q=Q, C=100.0, tau_s=10.0, tau_a=1.5, kappa=KAPPA)
+        extra.append(true_cost(inst, g.gz_action.to_numpy(int)) - true_cost(inst, g.sim_action.to_numpy(int)))
+    extra = np.array(extra)
+    if len(extra):
+        print(f"\nJoint epochs: extra cost of the Gazebo assignment under the offline probabilities: "
+              f"median {np.median(extra):.2f}, max {extra.max():.2f}; within one question's cost (3): "
+              f"{(extra <= 3.0).mean():.1%} of {len(extra)} epochs")
+    d = t.drop(index=("all", "all")).delay_diff_mean.abs()
+    ind = c[c.method == "indep"]
+    ok = {"collision outcome agrees >= 95%": c.col_agree.mean() >= 0.95,
+          "independent questions agree >= 90%": ind.ask_agree.mean() >= 0.90 if len(ind) else True,
+          "joint epochs within one question's cost >= 90%": (extra <= 3.0).mean() >= 0.90 if len(extra) else True,
+          "|mean delay difference| <= 0.5 s per condition and method": bool((d <= 0.5).all())}
+    print("\nFrozen criteria:")
+    for k, v in ok.items():
+        print(f"  [{'MET' if v else 'NOT MET'}] {k}")
+    print("All criteria MET" if all(ok.values()) else "Criteria NOT MET")
 
 if __name__ == "__main__":
     main()

@@ -1,7 +1,7 @@
 # Fleet Ask or Act with QAOA: pre-specified analysis plan
 
 **Status: DRAFT for review by D. Udekwe and Q. Guo. Not yet frozen.**
-Items marked `[DEV]` are filled from development data before freezing.
+All development values are filled in (κ*, H4 κ*, Gazebo criteria).
 Changes after the probability fix (agreed by D. Udekwe and Q. Guo, 3 November 2026; see
 `DEV_RERUN.md`): H3 moved to the exploratory list; new confirmatory H4 at α = 0.9.
 
@@ -117,19 +117,30 @@ As pre-registered in `prereg/HARDWARE.md` and `prereg/hardware.json`: 40 circuit
 
 ## 9. Gazebo validation
 
-N = 4, 20 epochs, nominal and noisy, `rule_matched`-type independent rule and `joint`
+N = 4, 20 epochs, nominal and noisy, the per-robot cost rule and `joint`
 (`fleet_gazebo/`). Gazebo and the offline simulator use identical inputs, including per-slot
 tracker noise. Infrastructure failures (no pedestrian data, a robot that never moved, no
 result) are re-run once and reported; persistent failures are excluded and counted.
 
-Agreement criteria `[DEV, after the v2 development validation]`:
-- collision outcome agrees for at least 95% of robot-runs (the Ask or Act criterion);
-- mean questions per epoch and mean delay per robot within limits set from the v2 run;
-- per-robot action agreement reported descriptively, with near-ties identified by the extra
-  expected cost of the Gazebo assignment under the offline probabilities.
+Agreement criteria, set from the v2 development validation (`results/gazebo_v2/`), computed by
+`fleet_gazebo/compare_fleet_validation.py`; all four must hold:
+1. collision outcome agrees for at least 95% of robot-runs (the Ask or Act criterion; v2: 100%);
+2. independent rule: question count agrees for at least 90% of robot-runs (v2: 97.5%);
+3. joint solver: in at least 90% of epochs, the Gazebo assignment costs at most 3 units (one
+   question, τₐ + κ) more than the offline assignment under the offline probabilities (v2: 97.5%);
+4. mean delay difference (Gazebo − offline) within ±0.5 s for every condition and method (v2: at
+   most 0.30 s).
+
+Reported descriptively: raw per-robot action and question agreement in joint mode, the
+deadline-probability gap, and the timing lag. In v2 the Gazebo robots ran about 0.025 m
+(≈ 0.14 s) behind the offline robots, so they reached the deadline later with a slightly
+different probability; joint disagreements were near-tied swaps of which robot asks.
+
+The independent method in Gazebo is the per-robot cost rule at κ = 1.5.
 
 ## 10. Deviations log
 
 | Date | Change | Reason |
 | --- | --- | --- |
+| 4 Nov 2026 (before freezing) | Gazebo joint criterion based on assignment cost, not raw action agreement | v2: Gazebo robots lag ≈ 0.14 s, so near-tied robots swap who asks (`DEV_RERUN.md` §10) |
 | 3 Nov 2026 (before freezing) | H3 moved to exploratory; H4a/H4b added | Corrected probabilities give no collisions at α = 1 (`DEV_RERUN.md`) |
