@@ -159,6 +159,7 @@ The independent method in Gazebo is the per-robot cost rule at κ = 1.5.
 
 | Date | Change | Reason |
 | --- | --- | --- |
+| 4 Nov 2026 (after freezing) | Exploratory closed-loop stage run on D. Udekwe's Windows machine with Python 3.12.10 and numpy 2.1.3 (scikit-learn 1.9.1 as frozen), not Python 3.13 / numpy 2.5.3 | Run time (28 cores). Spot checks of 4 epochs in 3 cells reproduce it exactly in the frozen environment, and its 56,000 confirmatory-method rows equal the confirmatory stage robot for robot (`results/final/SUMMARY.md`) |
 | 4 Nov 2026 (before freezing) | Final method sets per stage and the H2 computation stated explicitly | Written with the final scripts; tested on development data only |
 | 4 Nov 2026 (before freezing) | Gazebo joint criterion based on assignment cost, not raw action agreement | v2: Gazebo robots lag ≈ 0.14 s, so near-tied robots swap who asks (`DEV_RERUN.md` §10) |
 | 3 Nov 2026 (before freezing) | H3 moved to exploratory; H4a/H4b added | Corrected probabilities give no collisions at α = 1 (`DEV_RERUN.md`) |
