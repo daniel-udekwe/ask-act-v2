@@ -10,6 +10,14 @@ exploratory tables show. Exploratory statements are descriptive.
 - **H4a, H4b not supported.** 1.8 s faster, but collision bound 1.68 / 1.28 pp > 0.5 pp; N = 8
   question rates differ by 15.8% (deviation). See `POSTHOC_H4.md`.
 
+## Gazebo final validation (N = 4, 20 epochs, final seeds): all four criteria MET
+- Collision outcome agrees in 100% of 320 robot-runs (no collisions either side).
+- Independent rule: question count agrees in 98.8% of robot-runs.
+- Joint: in 100% of 40 epochs the Gazebo assignment costs at most one question more than offline
+  (max 2.15 units); raw per-robot action agreement 88.1%.
+- Mean delay difference 0.10-0.20 s per condition and method (limit 0.5 s). No infrastructure
+  failures excluded.
+
 ## Exploratory observations
 1. **The fixed Ask or Act band is faster than the joint solver** (noisy, decision-aware: 3.16 vs
    3.80 s at N = 6), with no collisions, but asks 3x as often (6.0 vs 2.0 questions per epoch)
