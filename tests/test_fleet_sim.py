@@ -94,3 +94,18 @@ def test_fast_probability_matches_sklearn(aoa):
             ref = cal.transform(ref)
         fast = np.array([_fast_probability(model, cal, x) for x in X])
         assert np.allclose(fast, ref, atol=1e-10), kind
+
+
+def test_fast_probability_old_sklearn_attributes(aoa):
+    """scikit-learn 0.23 isotonic models have _necessary_X_/_necessary_y_ instead of X/y_thresholds_."""
+    import copy
+    from fleet_qubo.fleet_sim import _fast_probability
+    rng = np.random.default_rng(1)
+    X = rng.normal(size=(200, 6)) * 2.0
+    model, cal = aoa["policy"].load_predictor(MODEL, "mlp", "isotonic_dw", "noisy")
+    ref = cal.transform(model.predict_proba(X)[:, 1])
+    old = copy.deepcopy(cal)
+    old.iso._necessary_X_, old.iso._necessary_y_ = old.iso.X_thresholds_, old.iso.y_thresholds_
+    del old.iso.X_thresholds_, old.iso.y_thresholds_
+    fast = np.array([_fast_probability(model, old, x) for x in X])
+    assert np.allclose(fast, ref, atol=1e-10)

@@ -291,8 +291,12 @@ def _fast_parts(model, calibrator):
     cal = None
     if calibrator is not None and type(calibrator).__name__ == "IsotonicCalibrator":
         iso = calibrator.iso
-        if getattr(iso, "out_of_bounds", "") == "clip" and getattr(iso, "increasing_", True) is not False:
-            cal = ("iso", np.asarray(iso.X_thresholds_, float), np.asarray(iso.y_thresholds_, float))
+        # scikit-learn >= 0.24 stores X_thresholds_; 0.23 (the Ask or Act Gazebo machine) _necessary_X_
+        x = getattr(iso, "X_thresholds_", getattr(iso, "_necessary_X_", None))
+        y = getattr(iso, "y_thresholds_", getattr(iso, "_necessary_y_", None))
+        if (x is not None and y is not None and getattr(iso, "out_of_bounds", "") == "clip"
+                and getattr(iso, "increasing_", True) is not False):
+            cal = ("iso", np.asarray(x, float), np.asarray(y, float))
     _FAST[key] = (parts, cal)
     return _FAST[key]
 
