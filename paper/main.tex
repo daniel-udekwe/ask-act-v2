@@ -86,7 +86,7 @@
 \shortauthors{Udekwe (2026)}
 
 \begin{abstract}
-Sidewalk delivery robots that meet pedestrians must decide whether to continue, yield, or ask a remote operator what the pedestrian intends. Calibrated confidence rules make this decision well for one robot, but a fleet shares one operator who answers one question at a time, so each robot's best action depends on the others. We formulate the fleet's decisions at a shared decision epoch as a quadratic unconstrained binary optimization (QUBO) problem with exactly two qubits per robot, in which calibrated crossing probabilities set the costs and a pairwise term prices the operator's queue. We evaluate it in a multi-robot closed-loop simulator, following an analysis plan frozen in a public repository before any final run. With correct operator answers, the exact joint solver cut mean delay per robot from 6.75 to 3.80~s (six robots) and from 7.01 to 3.93~s (eight robots) against per-robot rules that ask equally often, with no collisions. With answers correct 90\% of the time it remained faster but collided with 1.0--1.4\% of crossing robots against none for the matched rule, so that hypothesis was not supported. The quantum approximate optimization algorithm (QAOA) at depth 3 placed 16, 62 and 215 times the uniform-random probability on the optimum at 8, 12 and 16 qubits in noiseless simulation, in all 60 instances, and kept a 7--23-fold median gain on the \textit{ibm\_kingston} processor. The simulator agreed with Gazebo on every collision outcome in 320 robot runs. We claim no quantum advantage: every instance is solved exactly in milliseconds.
+Delivery robots that meet pedestrians must decide whether to continue, yield, or ask a remote operator what the pedestrian intends. A fleet shares one operator who answers one question at a time, so each robot's best action depends on the others. We formulate the fleet's decisions at a shared decision epoch as a quadratic unconstrained binary optimization (QUBO) problem with exactly two qubits per robot, in which calibrated crossing probabilities set the costs and a pairwise term prices the operator's queue. We evaluate it in closed loop under an analysis plan frozen before any final run. With correct operator answers, the exact joint solver cut mean delay per robot from 6.75 to 3.80~s (six robots) and from 7.01 to 3.93~s (eight robots) against per-robot rules that ask equally often, with no collisions. With answers correct 90\% of the time it remained faster but collided with 1.0--1.4\% of crossing robots against none for the matched rule, so that hypothesis was not supported. The quantum approximate optimization algorithm (QAOA) at depth 3 placed 16, 62 and 215 times the uniform-random probability on the optimum at 8, 12 and 16 qubits in noiseless simulation, in all 60 instances, and kept a 7--23-fold median gain on the \textit{ibm\_kingston} processor. A post-hoc analysis shows that this gain comes from learning that every robot should halt, not from choosing which robots should ask. The simulator agreed with Gazebo on every collision outcome in 320 robot runs. We claim no quantum advantage.
 \end{abstract}
 
 \begin{keywords}
@@ -139,28 +139,55 @@ Quantum annealing has been used to route automated guided vehicles without colli
 
 \begin{figure*}[t]
 \centering
-\begin{tikzpicture}[
-  node distance=4mm and 6mm,
-  box/.style={draw=black!55, rounded corners=2pt, align=center, font=\footnotesize, minimum height=10mm, text width=24mm, fill=white},
-  op/.style={box, fill=black!5},
-  arr/.style={-{Stealth[length=2mm]}, draw=black!70, semithick},
-  lbl/.style={font=\scriptsize, align=center, text=black!75}]
-\node[box] (track) {Pedestrian tracks\\(10~Hz, noisy)};
-\node[box, right=of track] (pred) {Intent predictor\\+ calibration};
-\node[box, right=of pred] (epoch) {Decision epoch:\\robots at deadline\\within \SI{1}{s}};
-\node[box, right=of epoch, fill=blue!6] (qubo) {QUBO\\$2N$ binaries\\(Eq.~\ref{eq:qubo})};
-\node[box, right=of qubo] (solve) {Solver: exhaustive\\(closed loop) or\\QAOA (benchmark)};
-\node[box, below=9mm of epoch, text width=30mm] (act) {Each robot: \pgo,\\\pstop\ (yield) or \pask};
-\node[op] (operator) at (act -| solve) {Shared operator\\FCFS, \SI{1.5}{s} each,\\\SI{5}{s} timeout};
-\draw[arr] (track) -- (pred);
-\draw[arr] (pred) -- node[lbl, above] {$p_i$} (epoch);
-\draw[arr] (epoch) -- (qubo);
-\draw[arr] (qubo) -- (solve);
-\draw[arr] (solve.south west) -- node[lbl, above left=-1mm] {actions} (act.north east);
-\draw[arr] ($(act.east)+(0,1.5mm)$) -- node[lbl, above] {questions} ($(operator.west)+(0,1.5mm)$);
-\draw[arr] ($(operator.west)+(0,-2.5mm)$) -- node[lbl, below] {answers ($\alpha$)} ($(act.east)+(0,-2.5mm)$);
-\end{tikzpicture}
-\caption{Decision pipeline for one fleet. Each robot computes a calibrated crossing probability for the pedestrian ahead. Robots that reach their decision deadlines within a short window are decided together by minimizing the QUBO, and the robots that ask queue for the one operator.}
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[font=\footnotesize,
+  box/.style={draw=black!55, rounded corners=2pt, align=center, fill=white, minimum height=9mm, text width=21mm, inner sep=2pt},
+  dec/.style={draw=black!55, diamond, aspect=1.9, align=center, fill=white, inner sep=0.5pt, text width=14mm, font=\scriptsize},
+  arr/.style={-{Stealth[length=1.8mm]}, draw=black!70, semithick},
+  lbl/.style={font=\scriptsize, text=black!75, align=center},
+  lane/.style={draw=none, rounded corners=4pt},
+  ttl/.style={font=\footnotesize\itshape, text=black!70, anchor=north west}]
+% robot lane
+\node[box] (trk) at (0,0) {Pedestrian tracker\\\SI{10}{Hz}, noise $\sigma$};
+\node[box, right=4mm of trk] (pred) {Intent MLP on\\track features};
+\node[box, right=4mm of pred] (cal) {Isotonic\\calibration};
+\node[box, right=4mm of cal] (sm) {Smoothing\\(last 5) $\Rightarrow p_i(t)$};
+\node[dec, right=5mm of sm] (dl) {at deadline\\(\SI{0.6}{m})?};
+\node[box, right=5mm of dl, text width=21mm, fill=blue!5] (hold) {Hold; send\\request $(i, p_i)$};
+\draw[arr] (trk) -- (pred); \draw[arr] (pred) -- (cal); \draw[arr] (cal) -- (sm); \draw[arr] (sm) -- (dl);
+\draw[arr] (dl) -- node[lbl, above] {yes} (hold);
+\draw[arr] (dl.north) -- ++(0,0.45) coordinate (lt) -| node[lbl, pos=0.25, above] {no: keep driving and observing} (trk.north);
+% coordinator lane
+\node[box, below=17mm of hold, text width=21mm] (ep) {Epoch closes:\\all arrived or \SI{1.5}{s}};
+\node[box, left=5mm of ep, fill=blue!8, text width=24mm] (qb) {Build QUBO\\$h_k$ from $\{p_i\}$;\\$J_q = q/4$, $J_x = \lambda_x/4$};
+\node[box, left=5mm of qb, text width=37mm] (sv) {Minimize $f(\mathbf a,\mathbf s)$:\\exhaustive search (in the loop);\\QAOA (benchmark only:\\simulator and IBM processor)};
+\node[box, left=5mm of sv, text width=22mm, fill=orange!8] (act) {Dispatch actions\\\pgo, \pstop\ or \pask};
+\draw[arr] (hold) -- node[lbl, right] {$N_e$ robots\\in window} (ep);
+\draw[arr] (ep) -- (qb); \draw[arr] (qb) -- (sv); \draw[arr] (sv) -- (act);
+% operator lane
+\node[box, below=14mm of act, text width=24mm, fill=black!5] (q) {Operator queue\\FCFS, \SI{1.5}{s} each};
+\node[box, right=8mm of q, text width=27mm, fill=black!5] (ans) {Answer, correct\\with probability $\alpha$};
+\node[box, right=8mm of ans, text width=28mm, fill=black!5] (to) {No answer in \SI{5}{s}:\\cautious fallback};
+\draw[arr] (act) -- node[lbl, left] {\pask} (q);
+\draw[arr] (q) -- (ans);
+\draw[arr] (q.south) -- ++(0,-0.35) -| (to.south);
+% execution back on robot
+\node[box, left=11mm of act, text width=20mm] (exe) {Robots execute:\\go on, yield,\\or wait for\\the answer};
+\draw[arr] (act) -- node[lbl, above] {\pgo, \pstop} (exe);
+\draw[arr] (ans.north) -- ++(0,0.3) -| ($(exe.south)+(0.3,0)$);
+\node[lbl, anchor=south east] at ($(ans.north)+(-0.05,0.3)$) {answer: crossing / not crossing};
+\coordinate (ltop) at ($(lt)+(0,0.5)$);
+% lanes
+\begin{scope}[on background layer]
+\node[lane, fill=blue!3, fit=(trk)(hold)(dl)(ltop), inner ysep=4mm, inner xsep=3mm] (L1) {};
+\node[lane, fill=orange!4, fit=(exe)(act)(sv)(qb)(ep), inner sep=3.5mm] (L2) {};
+\node[lane, fill=black!3, fit=(q)(ans)(to), inner ysep=5.5mm, inner xsep=3mm] (L3) {};
+\end{scope}
+\node[ttl] at (L1.north west) {On each robot ($i = 1,\dots,N$)};
+\node[ttl] at (L2.north west) {Fleet coordinator};
+\node[ttl, anchor=north east] at (L3.north east) {Remote operator};
+\end{tikzpicture}}
+\caption{Decision pipeline. On each robot, the tracked pedestrian's features feed an intent predictor whose output is calibrated and smoothed into a crossing probability $p_i$; the robot keeps driving and observing until the pedestrian is \SI{0.6}{m} ahead, then holds and sends its probability to the fleet coordinator. When the decision epoch closes, the coordinator builds the QUBO from the probabilities of all waiting robots, minimizes it, and sends each robot its action. Robots that ask join the operator's first-come-first-served queue; answers are correct with probability $\alpha$, and a question not answered within \SI{5}{s} falls back to the cautious rule. In the closed loop the QUBO is minimized exactly; QAOA is benchmarked offline on the same QUBOs.}
 \label{fig:pipeline}
 \end{figure*}
 
@@ -403,7 +430,14 @@ H5 & 8 & 0.9 & 0.75 & 0.63\rlap{$^{\dagger}$} & 4.34 & 6.11 & $<10^{-160}$ & 1.0
 
 Fig.~\ref{fig:pareto} shows the two policy families as $\kappa$ is swept. At every question rate that both families reach, the joint solver is faster. The gap is largest at about two questions per epoch, where the per-robot rule asks mostly about pedestrians with low probabilities and yields to the rest, while the joint solver lets pedestrians with low probabilities pass and spends its questions where they shorten the most waiting. Robots facing a pedestrian who did not cross were stopped for 4.5 and \SI{4.9}{s} on average under the joint solver against 9.3 and \SI{10.2}{s} under the matched rule ($N = 6$ and 8).
 
-The fixed Ask or Act band is the fastest method in the study (3.16 and \SI{3.26}{s}), also without collisions, but it asks three to four times as often as the joint solver (6.0 and 8.0 questions per epoch) and leaves 0.8 and 1.4 questions per epoch unanswered when the operator cannot keep up, against at most 0.003 for the joint solver. Its speed comes from operator time. Replacing the queue term by a hard budget of $\lceil N/3\rceil$ questions gave almost the same delay (3.81 and \SI{3.86}{s}) at 2.0 and 3.0 questions per epoch.
+The fixed Ask or Act band is the fastest method in the study (3.16 and \SI{3.26}{s}), also without collisions, but it asks three to four times as often as the joint solver (6.0 and 8.0 questions per epoch) and leaves 0.8 and 1.4 questions per epoch unanswered when the operator cannot keep up, against at most 0.003 for the joint solver. Its speed comes from operator time. Fig.~\ref{fig:epoch} shows how the two policies differ in one final epoch with six robots. The joint solver asked about two pedestrians whose probabilities were near the middle of the range (a late-turning pedestrian who crossed and one who did not), and let the operator answer both within \SI{3}{s}; the matched rule asked about three pedestrians, so its last robot waited for two earlier answers. Mean delay in this epoch was \SI{4.5}{s} under the joint solver and \SI{5.7}{s} under the rule. The joint solver is not better for every robot: robot R2, facing a hesitating pedestrian who did not cross ($p = 0.65$), was told to yield and waited \SI{8.4}{s}, whereas the rule asked and drove on after \SI{6.7}{s}.
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.92\textwidth]{figures/epoch.pdf}
+\caption{One final decision epoch with six robots (noisy tracking, decision-aware calibration), drawn lane by lane in order of arrival at the decision deadline. Each lane shows the robot's path, the stretch over which it observes the engaged pedestrian, its decision deadline (the pedestrian \SI{0.6}{m} ahead), and the pedestrian's positions every \SI{1.5}{s} (numbered, fading for earlier times). Below each lane: the calibrated probability at the deadline and the action and delay under the joint solver and the matched per-robot rule. Bottom: the operator's queue under each policy.}
+\label{fig:epoch}
+\end{figure*} Replacing the queue term by a hard budget of $\lceil N/3\rceil$ questions gave almost the same delay (3.81 and \SI{3.86}{s}) at 2.0 and 3.0 questions per epoch.
 
 \begin{figure*}[t]
 \centering
@@ -442,6 +476,15 @@ $\alpha$ & Tracking & $N$ & Raw & Conv. & Dec.-aware \\
 \label{sec:res-qaoa}
 
 H3 was met at every size: all 20 instances passed at $N = 4$, 6 and 8 (share 1.0, Clopper--Pearson interval [0.83, 1.0]). Median lifts over uniform sampling were 15.8, 61.8 and 214.8 (Fig.~\ref{fig:qaoa}a). The feasible share of the QAOA state was 0.998, 0.997 and 0.986, and the expected cost of feasible samples was 26\%, 27\% and 37\% above the optimum, against 423--509\% for a uniformly random feasible state. During development, depth 3 was not enough at $N = 10$ (20 qubits), where the expected cost of feasible samples stayed about 185\% above the optimum.
+
+\paragraph{What the trained circuits learn (post hoc).} Fig.~\ref{fig:qaoaparams} traces the trained circuits on the 60 final instances; this analysis was not pre-specified. The optimized schedules are similar across instances and sizes (panel a), and the INTERP growth converges in a few hundred evaluations at each depth (panel c). Panels (b) and (d) show what the lift measures. As depth grows, the state concentrates on the $2^N$ \emph{halt} states in which every robot either asks or stops (95--99.5\% of the probability at depth 3, against $2^{-N}$ under uniform sampling), and the lift approaches $2^N$ (16, 64 and 256). Inside that subspace the distribution is almost uniform: its total-variation distance from uniform is at most 0.03, and the optimum receives 0.96--0.99 times the probability of an average halt state. In every final instance the optimum is a halt state, so the circuits gain their lift by ruling out going (expensive at these probabilities) and the infeasible ask-and-stop states, not by choosing which robots should ask. The energy differences inside the halt subspace are small: the gap between the optimum and the next state is 0.3--0.75\% of the standard deviation of the spectrum, which is dominated by the go costs and the exclusion penalty, and one to three layers do not resolve it.
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=\textwidth]{figures/qaoa_params.pdf}
+\caption{QAOA training on the 60 final instances (noiseless). (a) Optimized angles of each layer at depth 3 (median and interquartile range over 20 instances per size). (b) Lift over uniform sampling as depth grows; dotted lines mark $2^N$. (c) Best expected normalized cost $F_p$ found by COBYLA during INTERP depth growth, for the first instance of each size. (d) Probability on the $2^N$ states in which every robot either asks or stops; dotted lines mark uniform sampling. Panels (b) and (d) are a post-hoc analysis.}
+\label{fig:qaoaparams}
+\end{figure*}
 
 On \textit{ibm\_kingston} the optimum was sampled in all 40 circuits (Table~\ref{tab:hw}, Fig.~\ref{fig:qaoa}b). At $N = 4$ the hardware retained most of the noiseless lift (7.3 against 8.6 at depth 1, 11.6 against 15.3 at depth 2). At $N = 6$ the depth-1 circuit kept 20.0 of 26.4, but the depth-2 circuit, with 149 two-qubit gates after routing, reached only 22.5 against 55.4 noiselessly: noise removed most of the second layer's gain. The share of feasible samples stayed well above random at every size, but fell with depth on hardware.
 
@@ -508,7 +551,7 @@ A second, post-hoc observation affects how precise the $\alpha = 0.9$ numbers ar
 
 \paragraph{Calibration behind an optimizer.} Calibration still matters when decisions are made jointly. With perfect answers, raw probabilities were the only source of collisions, because an overconfident ``not crossing'' score leads the solver to let a robot go without asking. Decision-aware calibration had the fewest collisions in every cell with imperfect answers, but its advantage over conventional calibration was small and not statistically clear here, unlike in the single-robot study \citep{udekwe2026askoract}. One reason is that both calibrations already keep almost every crossing pedestrian above the go threshold of the cost model.
 
-\paragraph{QAOA.} On these instances QAOA behaves well in noiseless simulation: it concentrates probability on the optimum far above random sampling and almost never violates the exclusion constraint, which the slack-free queue formulation makes easy. On hardware the picture is the familiar one \citep{harrigan2021qaoa}: a single layer survives the noise at 8 and 12 qubits, while a second layer at 12 qubits needs 149 two-qubit gates after routing and loses most of its benefit. Nothing here suggests an advantage over classical solvers, which solve every instance exactly in milliseconds \citep{abbas2024challenges}. The value of the benchmark is that it uses coefficients from a calibrated perception model, provides an exact reference for every instance, and was specified before the results were known.
+\paragraph{QAOA.} QAOA met its pre-specified criterion, but the post-hoc analysis changes how that result should be read. The lift over uniform sampling is a weak benchmark when most of the search space is obviously bad: the circuits learn the coarse structure of the problem (halt rather than go; never ask and stop at once), which a one-line classical rule also captures, and then spread their probability almost evenly over the remaining $2^N$ states. The part of the problem that coordination is about, which robots should ask given the queue, lives in energy differences of well under 1\% of the spectrum's spread and is not resolved at depths 1 to 3. Future QAOA benchmarks on such problems should report probability within the plausible subspace, or the approximation ratio relative to a strong heuristic, rather than lift over uniform sampling alone; restricting the search to the halt subspace (one qubit per robot) or using constraint-preserving mixers would also put the circuit's resolution where it matters. On hardware the picture is the familiar one \citep{harrigan2021qaoa}: a single layer survives the noise at 8 and 12 qubits, while a second layer at 12 qubits needs 149 two-qubit gates after routing and loses most of its benefit. Nothing here suggests an advantage over classical solvers, which solve every instance exactly in milliseconds \citep{abbas2024challenges}. The value of the benchmark is that it uses coefficients from a calibrated perception model, provides an exact reference for every instance, and was specified before the results were known.
 
 \paragraph{Limitations.} Robots run in separate lanes, so the operator is the only coupling; a pairwise corridor-congestion term that we also formulated changed little in development, because robots never shared a lane. Pedestrians are scripted, with eight behaviour families from the single-robot study. The operator model is simple: fixed service time, first come first served, and a fixed answer accuracy. All results are in simulation, with Gazebo agreement as the only physics check. Fleet sizes are small, and the closed-loop policy is solved exactly; QAOA is benchmarked offline, not used in the loop. Finally, the cost parameters are a modelling choice, and H4 shows that they matter.
 
@@ -516,7 +559,7 @@ A second, post-hoc observation affects how precise the $\alpha = 0.9$ numbers ar
 \section{Conclusion}
 \label{sec:conclusion}
 
-We formulated the go, yield and ask decisions of a delivery-robot fleet that shares one remote operator as a QUBO with a pairwise queue term, built its coefficients from calibrated pedestrian-intent probabilities, and evaluated it under an analysis plan frozen before the final runs. With perfect operator answers, deciding jointly cut mean delay per robot by about \SI{3}{s} against per-robot rules that ask equally often, without collisions; it is slower than an uncoordinated rule that asks three to four times as often, so its benefit is mainly reduced operator load. With imperfect answers the joint solver was faster but less safe than the matched rule, and the pre-specified non-inferiority hypotheses failed, because the two methods asked about different pedestrians. Calibration remained necessary behind the optimizer. QAOA met its pre-specified benchmark in noiseless simulation and kept a clear gain over random sampling on IBM hardware at depth 1, with no advantage over exact classical solution. Useful next steps are a shared-lane simulator in which robots also interact physically, an operator model with answers drawn per question and measured human response times, and cost models that bound collision risk directly.
+We formulated the go, yield and ask decisions of a delivery-robot fleet that shares one remote operator as a QUBO with a pairwise queue term, built its coefficients from calibrated pedestrian-intent probabilities, and evaluated it under an analysis plan frozen before the final runs. With perfect operator answers, deciding jointly cut mean delay per robot by about \SI{3}{s} against per-robot rules that ask equally often, without collisions; it is slower than an uncoordinated rule that asks three to four times as often, so its benefit is mainly reduced operator load. With imperfect answers the joint solver was faster but less safe than the matched rule, and the pre-specified non-inferiority hypotheses failed, because the two methods asked about different pedestrians. Calibration remained necessary behind the optimizer. QAOA met its pre-specified benchmark in noiseless simulation and kept a clear gain over random sampling on IBM hardware at depth 1, but a post-hoc analysis shows that the gain comes from learning that every robot should halt rather than from resolving which robots should ask, and there is no advantage over exact classical solution. Useful next steps are a shared-lane simulator in which robots also interact physically, an operator model with answers drawn per question and measured human response times, and cost models that bound collision risk directly.
 
 \section*{Data availability}
 The code, the frozen analysis plan (tag \texttt{v2-prereg}), development results and all final results are available at \url{https://github.com/daniel-udekwe/ask-act-v2}.
