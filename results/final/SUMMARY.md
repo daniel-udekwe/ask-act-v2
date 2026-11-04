@@ -18,6 +18,13 @@ exploratory tables show. Exploratory statements are descriptive.
 - Mean delay difference 0.10-0.20 s per condition and method (limit 0.5 s). No infrastructure
   failures excluded.
 
+## Hardware (ibm_kingston, 40 circuits; descriptive, `hardware_summary.md`)
+- The optimum was sampled in all 40 circuits. Median lift over random sampling: N = 4 7.3x (depth 1)
+  and 11.6x (depth 2); N = 6 20.0x and 22.5x (noiseless: 8.6x, 15.3x, 26.4x, 55.4x).
+- Feasible share stays well above random (N = 4: 0.90 / 0.88 against 0.32; N = 6: 0.79 / 0.69
+  against 0.18), but falls with depth on hardware; at N = 6 depth 2 (149 CZ gates) noise removes
+  most of the noiseless gain from the second layer.
+
 ## Exploratory observations
 1. **The fixed Ask or Act band is faster than the joint solver** (noisy, decision-aware: 3.16 vs
    3.80 s at N = 6), with no collisions, but asks 3x as often (6.0 vs 2.0 questions per epoch)
