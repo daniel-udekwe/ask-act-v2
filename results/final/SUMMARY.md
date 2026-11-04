@@ -47,3 +47,14 @@ exploratory tables show. Exploratory statements are descriptive.
 The exploratory stage was run on D. Udekwe's machine (28 cores). Spot checks of four epochs across
 three cells reproduce it exactly here, and its confirmatory-method rows equal the confirmatory
 stage robot for robot (56,000 rows).
+
+## Hypothesis numbering in the paper
+The paper numbers the confirmatory hypotheses sequentially. Correspondence with `ANALYSIS_PLAN.md`:
+
+| Paper | Plan | Content |
+|---|---|---|
+| H1 | H1a | joint vs matched rule, N = 6, α = 1 |
+| H2 | H1b | joint vs matched rule, N = 8, α = 1 |
+| H3 | H2 | QAOA benchmark, N = 4, 6, 8 |
+| H4 | H4a | α-aware joint vs matched rule, N = 6, α = 0.9 |
+| H5 | H4b | α-aware joint vs matched rule, N = 8, α = 0.9 |
