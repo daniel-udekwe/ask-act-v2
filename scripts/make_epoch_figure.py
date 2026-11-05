@@ -98,17 +98,16 @@ for n, i in enumerate(order):
     P = np.array([ped_traj.pose_at(traj, ts, t)[:2] for t in T])
     ax.plot(-P[:, 0], P[:, 1], "--", color=col, lw=1.4, zorder=2)
     ax.annotate("", xy=(-P[-1, 0], P[-1, 1]), xytext=(-P[-6, 0], P[-6, 1]), arrowprops=dict(arrowstyle="-|>", color=col, lw=1.2))
-    marks = np.arange(0, ts[-1], 1.5)[:7]
-    head = 90.0
-    for k, t in enumerate(marks):
-        x, y = ped_traj.pose_at(traj, ts, t)[:2]
-        if not (-2.7 < y < 2.6):
-            continue
-        x2, y2 = ped_traj.pose_at(traj, ts, t + 0.3)[:2]
-        if np.hypot(x2 - x, y2 - y) > 1e-3:
-            head = np.degrees(np.arctan2(y2 - y, -(x2 - x)))       # display frame (x mirrored)
-        sprite(ax, -x, y, head, 0.35 + 0.65 * (k + 1) / len(marks))
-        ax.text(-x - 0.42, y + 0.02, str(k + 1), fontsize=6, color=INK2, ha="right", va="center")
+    from epoch_marks import choose_marks, pause_point
+    mk = choose_marks(ped_traj, traj, ts)
+    for k, (t, x, y, hd) in enumerate(mk):
+        sprite(ax, x, y, hd, 0.35 + 0.65 * (k + 1) / len(mk))
+        ax.text(x - 0.42, y + 0.02, str(k + 1), fontsize=6, color=INK2, ha="right", va="center")
+    pz = pause_point(ped_traj, traj, ts)
+    if pz is not None:
+        txt = f"pauses {pz[2]:.1f} s" + (",\nturns back" if lab["family"] == "hesitant" and lab["intent"] != "crossing" else "")
+        ax.text(pz[0] + 0.45, pz[1], txt, fontsize=5.8, color=INK, ha="left", va="center",
+                bbox=dict(boxstyle="round,pad=0.12", fc="white", ec="none", alpha=0.8))
     fam = lab["family"].replace("_", " ").replace("noncross", "non-cross")
     ax.set_title(f"R{n + 1}: {fam}, {lab['intent'].replace('_', ' ')}", fontsize=7.8, color=INK, pad=2)
     jtxt = f"joint: {NAMES[jo[i]['action']].upper()}" if jo[i]["action"] >= 0 else "joint: decided alone"
@@ -118,7 +117,7 @@ for n, i in enumerate(order):
     if n == 0:
         ax.text(-2.9, 0.45, "robot", fontsize=6.5, color=INK, ha="center", fontweight="bold")
         ax.text(1.1, 0.4, "to goal", fontsize=6.5, color=BLUE, ha="right")
-        ax.annotate("deadline:\npedestrian 0.6 m ahead", xy=(px - 0.6, -0.3), xytext=(-3.4, -1.3), fontsize=6, color="#a0522d",
+        ax.annotate("deadline\n(0.6 m)", xy=(px - 0.6, -0.3), xytext=(-3.35, -1.2), fontsize=6, color="#a0522d",
                     ha="left", arrowprops=dict(arrowstyle="-", color="#a0522d", lw=0.7))
 # operator queue
 ax = fig.add_subplot(gsp[2, :])

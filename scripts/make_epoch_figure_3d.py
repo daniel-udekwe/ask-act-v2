@@ -101,13 +101,13 @@ def sprite3d(ax, x, y, heading_deg, alpha, size=0.85, lift=0.06):
     ax.add_patch(Ellipse((sx, sy), 0.62, 0.62 * SY, fc="black", alpha=0.10 * alpha + 0.04, lw=0, zorder=3))
     ax.imshow(np.asarray(im), extent=(x - w / 2, x + w / 2, y - h / 2, y + h / 2), alpha=alpha, zorder=4,
               interpolation="bilinear", transform=ground_tf(ax, lift))
-def robot3d(ax, x, y, r=0.24, hgt=0.3):
+ROBOT_IMG = Image.open(os.path.join(ROOT, "paper", "assets", "turtlebot3_rgba.png")).convert("RGBA")
+def robot3d(ax, x, y, h=0.85):
+    """TurtleBot3 Burger drawn upright at ground point (x, y); not to scale (enlarged for visibility)."""
     cx, cy = P(x, y)
-    ax.add_patch(Ellipse((cx + 0.05, cy - 0.03), 2.3 * r, 2.3 * r * SY, fc="black", alpha=0.15, lw=0, zorder=3))
-    ax.add_patch(Rectangle((cx - r, cy), 2 * r, hgt, fc="#1f5fae", lw=0, zorder=4))
-    ax.add_patch(Ellipse((cx, cy), 2 * r, 2 * r * SY, fc="#1f5fae", lw=0, zorder=4))
-    ax.add_patch(Ellipse((cx, cy + hgt), 2 * r, 2 * r * SY, fc="#5a97e0", ec="white", lw=0.8, zorder=5))
-    ax.add_patch(Ellipse((cx, cy + hgt), 0.8 * r, 0.8 * r * SY, fc="white", lw=0, zorder=6))
+    w = h * ROBOT_IMG.width / ROBOT_IMG.height
+    ax.add_patch(Ellipse((cx + 0.05, cy - 0.02), 1.1 * w, 1.1 * w * SY, fc="black", alpha=0.18, lw=0, zorder=3))
+    ax.imshow(np.asarray(ROBOT_IMG), extent=(cx - w / 2, cx + w / 2, cy - 0.12 * h, cy + 0.88 * h), zorder=6, interpolation="bilinear")
 
 X0, X1, Y0, Y1 = -3.45, 1.25, -2.85, 2.9
 fig = plt.figure(figsize=(7.2, 5.9))
@@ -137,20 +137,18 @@ for n, i in enumerate(order):
     Q = np.array([ped_traj.pose_at(traj, ts, t)[:2] for t in T]); Q = Q[(Q[:, 1] > Y0) & (Q[:, 1] < Y1)]
     ax.plot(*P(-Q[:, 0], Q[:, 1]), "--", color=col, lw=1.4, zorder=2)
     ax.annotate("", xy=P(-Q[-1, 0], Q[-1, 1]), xytext=P(-Q[-6, 0], Q[-6, 1]), arrowprops=dict(arrowstyle="-|>", color=col, lw=1.2))
-    marks = np.arange(0, ts[-1], 1.5)[:7]; head = 90.0
-    pts = []
-    for k, t in enumerate(marks):
-        x, y = ped_traj.pose_at(traj, ts, t)[:2]
-        if not (Y0 + 0.2 < y < Y1 - 0.3):
-            continue
-        x2, y2 = ped_traj.pose_at(traj, ts, t + 0.3)[:2]
-        if np.hypot(x2 - x, y2 - y) > 1e-3:
-            head = np.degrees(np.arctan2(y2 - y, -(x2 - x)))
-        pts.append((k, -x, y, head))
-    for k, x, y, hd in sorted(pts, key=lambda q: -q[2]):          # far (larger y) first
-        sprite3d(ax, x, y, hd, 0.35 + 0.65 * (k + 1) / len(marks))
-        tx, ty = P(x - 0.45, y)
+    from epoch_marks import choose_marks, pause_point
+    mk = choose_marks(ped_traj, traj, ts, ylim=(Y0 + 0.2, Y1 - 0.3))
+    for k, (t, x, y, hd) in sorted(enumerate(mk), key=lambda q: -q[1][2]):     # far (larger y) first
+        sprite3d(ax, x, y, hd, 0.35 + 0.65 * (k + 1) / len(mk))
+        tx, ty = P(x - 0.5, y)
         ax.text(tx, ty, str(k + 1), fontsize=6, color=INK2, ha="right", va="center", zorder=7)
+    pz = pause_point(ped_traj, traj, ts)
+    if pz is not None:
+        tx, ty = P(pz[0] + 0.5, pz[1])
+        txt = f"pauses {pz[2]:.1f} s" + (",\nturns back" if lab["family"] == "hesitant" and lab["intent"] != "crossing" else "")
+        ax.text(tx, ty, txt, fontsize=5.8, color=INK, ha="left", va="center", zorder=8,
+                bbox=dict(boxstyle="round,pad=0.12", fc="white", ec="none", alpha=0.8))
     robot3d(ax, -2.9, 0.03)
     fam = lab["family"].replace("_", " ").replace("noncross", "non-cross")
     ax.set_title(f"R{n + 1}: {fam}, {lab['intent'].replace('_', ' ')}", fontsize=7.8, color=INK, pad=1)
@@ -158,9 +156,9 @@ for n, i in enumerate(order):
     ax.text(0.5, -0.02, f"$p$ = {deadline_p(jp[i]):.2f} at the deadline\njoint: {ja_.upper()} ({jo[i]['delay']:.1f} s)   rule: {ra_.upper()} ({ro[i]['delay']:.1f} s)",
             transform=ax.transAxes, fontsize=6.4, ha="center", va="top", color=INK)
     if n == 0:
-        ax.text(*P(-2.9, 0.03, 0.42), "robot", fontsize=6.5, color=INK, ha="center", fontweight="bold", zorder=8)
+        ax.text(*P(-2.9, 0.03, 0.98), "robot", fontsize=6.5, color=INK, ha="center", fontweight="bold", zorder=8)
         ax.text(*P(1.2, 0.55), "to goal", fontsize=6.5, color=BLUE, ha="right", zorder=8)
-        ax.annotate("deadline gate", xy=P(px - 0.6, 0.35, 0.5), xytext=P(px - 0.2, 1.6, 0.0), fontsize=6, color="#a0522d",
+        ax.annotate("deadline\ngate", xy=P(px - 0.6, -0.3, 0.35), xytext=P(-3.3, -2.3, 0.0), fontsize=6, color="#a0522d",
                     ha="left", arrowprops=dict(arrowstyle="-", color="#a0522d", lw=0.7), zorder=8)
 # operator queue
 ax = fig.add_subplot(gsp[2, :])
