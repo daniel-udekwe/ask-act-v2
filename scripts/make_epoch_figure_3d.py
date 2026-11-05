@@ -78,7 +78,7 @@ for m, outs in (("joint", jo), ("rule_matched", ro)):
     assert list(cc.delay) == [o["delay"] for o in outs] and list(cc.n_asks) == [o["n_asks"] for o in outs], m
 print("epoch", e, [l["id"] for l in labs])
 
-INK2 = "#333333"; XC, NC = "#d0453a", "#1d8a5a"
+INK2 = "#333333"; XC, NC = "#d0453a", "#1d8a5a"; ROBOTC = "#3a3a38"
 # ---- oblique "3D" projection of the ground plane: screen = A @ (x, y) + (0, z)
 from matplotlib.transforms import Affine2D
 from matplotlib.patches import Polygon, Ellipse
@@ -100,14 +100,14 @@ def sprite3d(ax, x, y, heading_deg, alpha, size=0.85, lift=0.06):
     sx, sy = P(x + 0.07, y - 0.07)
     ax.add_patch(Ellipse((sx, sy), 0.62, 0.62 * SY, fc="black", alpha=0.10 * alpha + 0.04, lw=0, zorder=3))
     ax.imshow(np.asarray(im), extent=(x - w / 2, x + w / 2, y - h / 2, y + h / 2), alpha=alpha, zorder=4,
-              interpolation="bilinear", transform=ground_tf(ax, lift))
+              interpolation="lanczos", interpolation_stage="rgba", transform=ground_tf(ax, lift))
 ROBOT_IMG = Image.open(os.path.join(ROOT, "paper", "assets", "turtlebot3_rgba.png")).convert("RGBA")
 def robot3d(ax, x, y, h=0.85):
     """TurtleBot3 Burger drawn upright at ground point (x, y); not to scale (enlarged for visibility)."""
     cx, cy = P(x, y)
     w = h * ROBOT_IMG.width / ROBOT_IMG.height
     ax.add_patch(Ellipse((cx + 0.05, cy - 0.02), 1.1 * w, 1.1 * w * SY, fc="black", alpha=0.18, lw=0, zorder=3))
-    ax.imshow(np.asarray(ROBOT_IMG), extent=(cx - w / 2, cx + w / 2, cy - 0.12 * h, cy + 0.88 * h), zorder=6, interpolation="bilinear")
+    ax.imshow(np.asarray(ROBOT_IMG), extent=(cx - w / 2, cx + w / 2, cy - 0.12 * h, cy + 0.88 * h), zorder=6, interpolation="lanczos", interpolation_stage="rgba")
 
 X0, X1, Y0, Y1 = -3.45, 1.25, -2.85, 2.9
 fig = plt.figure(figsize=(7.2, 5.9))
@@ -131,7 +131,7 @@ for n, i in enumerate(order):
     poly(ax, [(px - 1.0, -0.3), (px - 0.6, -0.3), (px - 0.6, 0.35), (px - 1.0, 0.35)], fc="#f6dfcc", lw=0, zorder=1)
     # deadline: a translucent vertical gate across the walkway
     quad_vertical(ax, px - 0.6, -0.3, px - 0.6, 0.35, 0.7, fc="#e08a4f", alpha=0.35, ec="#c0622d", lw=0.9, zorder=2)
-    ax.annotate("", xy=P(1.2, 0.03), xytext=P(-2.9, 0.03), arrowprops=dict(arrowstyle="-|>", color=BLUE, lw=1.2, ls="--"), zorder=2)
+    ax.annotate("", xy=P(1.2, 0.03), xytext=P(-2.9, 0.03), arrowprops=dict(arrowstyle="-|>", color=ROBOTC, lw=1.3, ls="--"), zorder=2)
     col = XC if lab["intent"] == "crossing" else NC
     T = np.linspace(0, ts[-1], 200)
     Q = np.array([ped_traj.pose_at(traj, ts, t)[:2] for t in T]); Q = Q[(Q[:, 1] > Y0) & (Q[:, 1] < Y1)]
@@ -157,7 +157,7 @@ for n, i in enumerate(order):
             transform=ax.transAxes, fontsize=6.4, ha="center", va="top", color=INK)
     if n == 0:
         ax.text(*P(-2.9, 0.03, 0.98), "robot", fontsize=6.5, color=INK, ha="center", fontweight="bold", zorder=8)
-        ax.text(*P(1.2, 0.55), "to goal", fontsize=6.5, color=BLUE, ha="right", zorder=8)
+        ax.text(*P(1.2, 0.55), "to goal", fontsize=6.5, color=ROBOTC, ha="right", zorder=8)
         ax.annotate("deadline\ngate", xy=P(px - 0.6, -0.3, 0.35), xytext=P(-3.3, -2.3, 0.0), fontsize=6, color="#a0522d",
                     ha="left", arrowprops=dict(arrowstyle="-", color="#a0522d", lw=0.7), zorder=8)
 # operator queue
@@ -179,10 +179,10 @@ ax.set_title("Operator queue in this epoch", fontsize=8.5, color=INK); ax.grid(a
 from matplotlib.lines import Line2D
 fig.legend(handles=[Line2D([], [], color=XC, ls="--", label="pedestrian crosses"),
                     Line2D([], [], color=NC, ls="--", label="pedestrian does not cross"),
-                    Line2D([], [], color=BLUE, ls="--", label="robot path"),
+                    Line2D([], [], color=ROBOTC, ls="--", label="robot path"),
                     Rectangle((0, 0), 1, 1, fc="#f6dfcc", label="engaged: observe until the deadline"),
                     Rectangle((0, 0), 1, 1, fc="#e08a4f", alpha=0.35, ec="#c0622d", label="decision deadline (pedestrian 0.6 m ahead)")],
            loc="lower center", ncol=3, fontsize=7, bbox_to_anchor=(0.5, 0.0))
 fig.subplots_adjust(top=0.97, bottom=0.15, left=0.12, right=0.99)
-fig.savefig(os.path.join(OUT, "epoch_3d.pdf"), dpi=300); plt.close(fig)
+fig.savefig(os.path.join(OUT, "epoch_3d.pdf"), dpi=900); plt.close(fig)
 print("written")

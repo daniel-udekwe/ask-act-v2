@@ -434,8 +434,8 @@ The fixed Ask or Act band is the fastest method in the study (3.16 and \SI{3.26}
 
 \begin{figure*}[t]
 \centering
-\includegraphics[width=0.92\textwidth]{figures/epoch.pdf}
-\caption{One final decision epoch with six robots (noisy tracking, decision-aware calibration), drawn lane by lane in order of arrival at the decision deadline. Each lane shows the robot's path, the stretch over which it observes the engaged pedestrian, its decision deadline (the pedestrian \SI{0.6}{m} ahead), and the pedestrian's positions along its path, about \SI{0.85}{m} of walking apart (numbered in time order, fading for earlier times; pauses are labelled). Below each lane: the calibrated probability at the deadline and the action and delay under the joint solver and the matched per-robot rule. Bottom: the operator's queue under each policy.}
+\includegraphics[width=\textwidth]{figures/epoch_3d.pdf}
+\caption{One final decision epoch with six robots (noisy tracking, decision-aware calibration), drawn lane by lane in order of arrival at the decision deadline. Each lane shows the robot (a TurtleBot3) and its path, the stretch over which it observes the engaged pedestrian, its decision deadline (drawn as a gate where the pedestrian is \SI{0.6}{m} ahead), and the pedestrian's positions along its path, about \SI{0.85}{m} of walking apart (numbered in time order, fading for earlier times; pauses are labelled). Below each lane: the calibrated probability at the deadline and the action and delay under the joint solver and the matched per-robot rule. Bottom: the operator's queue under each policy. Robot and pedestrians are enlarged for visibility.}
 \label{fig:epoch}
 \end{figure*} Replacing the queue term by a hard budget of $\lceil N/3\rceil$ questions gave almost the same delay (3.81 and \SI{3.86}{s}) at 2.0 and 3.0 questions per epoch.
 
