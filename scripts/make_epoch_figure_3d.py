@@ -94,13 +94,16 @@ def quad_vertical(ax, x0, y0, x1, y1, h, **kw):
     a, b = P([x0, x1], [y0, y1]); ax.add_patch(Polygon([(a[0], b[0]), (a[1], b[1]), (a[1], b[1] + h), (a[0], b[0] + h)], closed=True, **kw))
 def ground_tf(ax, z=0.0):
     return Affine2D(np.array([[1, SH, 0], [0, SY, z], [0, 0, 1]])) + ax.transData
-def sprite3d(ax, x, y, heading_deg, alpha, size=0.85, lift=0.06):
-    im = SPRITE.rotate(heading_deg - 90.0, expand=True, resample=Image.BICUBIC)
-    w = size * im.width / SPRITE.width; h = size * im.height / SPRITE.width
-    sx, sy = P(x + 0.07, y - 0.07)
-    ax.add_patch(Ellipse((sx, sy), 0.62, 0.62 * SY, fc="black", alpha=0.10 * alpha + 0.04, lw=0, zorder=3))
-    ax.imshow(np.asarray(im), extent=(x - w / 2, x + w / 2, y - h / 2, y + h / 2), alpha=alpha, zorder=4,
-              interpolation="lanczos", interpolation_stage="rgba", transform=ground_tf(ax, lift))
+WORKER = Image.open(os.path.join(ROOT, "paper", "assets", "worker_rgba.png")).convert("RGBA")
+WORKER_FLIP = WORKER.transpose(Image.FLIP_LEFT_RIGHT)
+def sprite3d(ax, x, y, heading_deg, alpha, h=1.0):
+    """Upright pedestrian (seen from behind and above) standing at ground point (x, y); mirrored when walking left."""
+    im = WORKER_FLIP if np.cos(np.radians(heading_deg)) < -0.2 else WORKER
+    cx, cy = P(x, y)
+    w = h * im.width / im.height
+    ax.add_patch(Ellipse((cx + 0.04, cy), 0.55, 0.55 * SY, fc="black", alpha=0.12 + 0.08 * alpha, lw=0, zorder=3))
+    ax.imshow(np.asarray(im), extent=(cx - w / 2, cx + w / 2, cy - 0.04 * h, cy + 0.96 * h), alpha=alpha, zorder=4 + (2.9 - y) * 0.01,
+              interpolation="lanczos", interpolation_stage="rgba")
 ROBOT_IMG = Image.open(os.path.join(ROOT, "paper", "assets", "turtlebot3_rgba.png")).convert("RGBA")
 def robot3d(ax, x, y, h=0.85):
     """TurtleBot3 Burger drawn upright at ground point (x, y); not to scale (enlarged for visibility)."""
@@ -116,7 +119,7 @@ order = np.argsort([-s for s in shifts])
 for n, i in enumerate(order):
     ax = fig.add_subplot(gsp[n // 3, n % 3]); lab = labs[i]
     cx, cy = P([X0, X1, X0, X1], [Y0, Y0, Y1, Y1])
-    ax.set_xlim(cx.min() - 0.05, cx.max() + 0.05); ax.set_ylim(cy.min() - 0.12, cy.max() + 0.25); ax.set_aspect("equal"); ax.axis("off")
+    ax.set_xlim(cx.min() - 0.05, cx.max() + 0.05); ax.set_ylim(cy.min() - 0.12, cy.max() + 0.75); ax.set_aspect("equal"); ax.axis("off")
     # floor with a 1 m grid
     poly(ax, [(X0, Y0), (X1, Y0), (X1, Y1), (X0, Y1)], fc="#f5f4ef", ec="#d9d7cf", lw=0.6, zorder=0)
     for gx in np.arange(-3, 1.01, 1.0):
@@ -136,13 +139,13 @@ for n, i in enumerate(order):
     T = np.linspace(0, ts[-1], 200)
     Q = np.array([ped_traj.pose_at(traj, ts, t)[:2] for t in T]); Q = Q[(Q[:, 1] > Y0) & (Q[:, 1] < Y1)]
     ax.plot(*P(-Q[:, 0], Q[:, 1]), "--", color=col, lw=1.4, zorder=2)
-    ax.annotate("", xy=P(-Q[-1, 0], Q[-1, 1]), xytext=P(-Q[-6, 0], Q[-6, 1]), arrowprops=dict(arrowstyle="-|>", color=col, lw=1.2))
+    ax.annotate("", xy=P(-Q[-1, 0], Q[-1, 1]), xytext=P(-Q[-6, 0], Q[-6, 1]), arrowprops=dict(arrowstyle="-|>", color=col, lw=1.2), zorder=2)
     from epoch_marks import choose_marks, pause_point
-    mk = choose_marks(ped_traj, traj, ts, ylim=(Y0 + 0.2, Y1 - 0.3))
+    mk = choose_marks(ped_traj, traj, ts, ylim=(Y0 + 0.2, Y1 - 0.9), max_marks=5, step=1.05, gap=0.8)
     for k, (t, x, y, hd) in sorted(enumerate(mk), key=lambda q: -q[1][2]):     # far (larger y) first
-        sprite3d(ax, x, y, hd, 0.35 + 0.65 * (k + 1) / len(mk))
-        tx, ty = P(x - 0.5, y)
-        ax.text(tx, ty, str(k + 1), fontsize=6, color=INK2, ha="right", va="center", zorder=7)
+        sprite3d(ax, x, y, hd, 0.5 + 0.5 * (k + 1) / len(mk))
+        tx, ty = P(x - 0.45, y)
+        ax.text(tx, ty + 0.15, str(k + 1), fontsize=6, color=INK2, ha="right", va="center", zorder=7)
     pz = pause_point(ped_traj, traj, ts)
     if pz is not None:
         tx, ty = P(pz[0] + 0.5, pz[1])

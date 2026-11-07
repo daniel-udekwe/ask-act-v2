@@ -10,16 +10,16 @@ import numpy as np
 STEP, GAP = 0.85, 0.6
 
 
-def choose_marks(ped_traj, traj, ts, ylim=(-2.65, 2.6), max_marks=6):
+def choose_marks(ped_traj, traj, ts, ylim=(-2.65, 2.6), max_marks=6, step=STEP, gap=GAP):
     T = np.arange(0, ts[-1] + 1e-9, 0.05)
     XY = np.array([ped_traj.pose_at(traj, ts, t)[:2] for t in T]) * np.array([-1, 1])
     seg = np.r_[0, np.cumsum(np.hypot(*np.diff(XY, axis=0).T))]
     marks, last_s = [], -np.inf
     for k, t in enumerate(T):
         x, y = XY[k]
-        if not (ylim[0] < y < ylim[1]) or seg[k] - last_s < STEP:
+        if not (ylim[0] < y < ylim[1]) or seg[k] - last_s < step:
             continue
-        if any(np.hypot(x - mx, y - my) < GAP for _, mx, my, _ in marks):
+        if any(np.hypot(x - mx, y - my) < gap for _, mx, my, _ in marks):
             continue
         j = min(k + 6, len(T) - 1)
         dx, dy = XY[j] - XY[k]
