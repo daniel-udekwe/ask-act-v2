@@ -96,33 +96,40 @@ def ground_tf(ax, z=0.0):
     return Affine2D(np.array([[1, SH, 0], [0, SY, z], [0, 0, 1]])) + ax.transData
 WORKER = Image.open(os.path.join(ROOT, "paper", "assets", "worker_rgba.png")).convert("RGBA")
 WORKER_FLIP = WORKER.transpose(Image.FLIP_LEFT_RIGHT)
-def sprite3d(ax, x, y, heading_deg, alpha, h=1.0):
-    """Upright pedestrian (seen from behind and above) standing at ground point (x, y); mirrored when walking left."""
-    im = WORKER_FLIP if np.cos(np.radians(heading_deg)) < -0.2 else WORKER
+FRONT = Image.open(os.path.join(ROOT, "paper", "assets", "worker_front_rgba.png")).convert("RGBA")   # walks toward lower left
+FRONT_FLIP = FRONT.transpose(Image.FLIP_LEFT_RIGHT)
+def sprite3d(ax, x, y, heading_deg, alpha, h=1.3):
+    """Upright pedestrian standing at ground point (x, y): seen from behind when walking away from the
+    viewer (up the page), from the front when walking toward the viewer; mirrored to match left/right."""
+    c, s_ = np.cos(np.radians(heading_deg)), np.sin(np.radians(heading_deg))
+    if s_ < -0.2:
+        im = FRONT_FLIP if c > 0.2 else FRONT
+    else:
+        im = WORKER_FLIP if c < -0.2 else WORKER
     cx, cy = P(x, y)
     w = h * im.width / im.height
-    ax.add_patch(Ellipse((cx + 0.04, cy), 0.55, 0.55 * SY, fc="black", alpha=0.12 + 0.08 * alpha, lw=0, zorder=3))
+    ax.add_patch(Ellipse((cx + 0.04, cy), 0.6, 0.6 * SY, fc="black", alpha=0.12 + 0.08 * alpha, lw=0, zorder=3))
     ax.imshow(np.asarray(im), extent=(cx - w / 2, cx + w / 2, cy - 0.04 * h, cy + 0.96 * h), alpha=alpha, zorder=4 + (2.9 - y) * 0.01,
               interpolation="lanczos", interpolation_stage="rgba")
 ROBOT_IMG = Image.open(os.path.join(ROOT, "paper", "assets", "turtlebot3_rgba.png")).convert("RGBA")
-def robot3d(ax, x, y, h=0.85):
+def robot3d(ax, x, y, h=0.75):
     """TurtleBot3 Burger drawn upright at ground point (x, y); not to scale (enlarged for visibility)."""
     cx, cy = P(x, y)
     w = h * ROBOT_IMG.width / ROBOT_IMG.height
     ax.add_patch(Ellipse((cx + 0.05, cy - 0.02), 1.1 * w, 1.1 * w * SY, fc="black", alpha=0.18, lw=0, zorder=3))
-    ax.imshow(np.asarray(ROBOT_IMG), extent=(cx - w / 2, cx + w / 2, cy - 0.12 * h, cy + 0.88 * h), zorder=6, interpolation="lanczos", interpolation_stage="rgba")
+    ax.imshow(np.asarray(ROBOT_IMG), extent=(cx - w / 2, cx + w / 2, cy - 0.12 * h, cy + 0.88 * h), zorder=4 + (2.9 - y) * 0.01, interpolation="lanczos", interpolation_stage="rgba")
 
-X0, X1, Y0, Y1 = -3.45, 1.25, -2.85, 2.9
-fig = plt.figure(figsize=(7.2, 5.9))
+X0, X1, Y0, Y1 = -3.45, 0.75, -2.85, 2.9
+fig = plt.figure(figsize=(7.2, 6.9))
 gsp = fig.add_gridspec(3, 3, height_ratios=[1, 1, 0.7], hspace=0.42, wspace=0.03)
 order = np.argsort([-s for s in shifts])
 for n, i in enumerate(order):
     ax = fig.add_subplot(gsp[n // 3, n % 3]); lab = labs[i]
     cx, cy = P([X0, X1, X0, X1], [Y0, Y0, Y1, Y1])
-    ax.set_xlim(cx.min() - 0.05, cx.max() + 0.05); ax.set_ylim(cy.min() - 0.12, cy.max() + 0.75); ax.set_aspect("equal"); ax.axis("off")
+    ax.set_xlim(cx.min() - 0.05, cx.max() + 0.05); ax.set_ylim(cy.min() - 0.12, cy.max() + 1.05); ax.set_aspect("equal"); ax.axis("off")
     # floor with a 1 m grid
     poly(ax, [(X0, Y0), (X1, Y0), (X1, Y1), (X0, Y1)], fc="#f5f4ef", ec="#d9d7cf", lw=0.6, zorder=0)
-    for gx in np.arange(-3, 1.01, 1.0):
+    for gx in np.arange(-3, X1 + 0.01, 1.0):
         ax.plot(*P([gx, gx], [Y0, Y1]), color="#e4e2da", lw=0.5, zorder=0)
     for gy in np.arange(-2, 2.01, 1.0):
         ax.plot(*P([X0, X1], [gy, gy]), color="#e4e2da", lw=0.5, zorder=0)
@@ -134,18 +141,18 @@ for n, i in enumerate(order):
     poly(ax, [(px - 1.0, -0.3), (px - 0.6, -0.3), (px - 0.6, 0.35), (px - 1.0, 0.35)], fc="#f6dfcc", lw=0, zorder=1)
     # deadline: a translucent vertical gate across the walkway
     quad_vertical(ax, px - 0.6, -0.3, px - 0.6, 0.35, 0.7, fc="#e08a4f", alpha=0.35, ec="#c0622d", lw=0.9, zorder=2)
-    ax.annotate("", xy=P(1.2, 0.03), xytext=P(-2.9, 0.03), arrowprops=dict(arrowstyle="-|>", color=ROBOTC, lw=1.3, ls="--"), zorder=2)
+    ax.annotate("", xy=P(0.7, 0.03), xytext=P(-2.9, 0.03), arrowprops=dict(arrowstyle="-|>", color=ROBOTC, lw=1.3, ls="--"), zorder=2)
     col = XC if lab["intent"] == "crossing" else NC
     T = np.linspace(0, ts[-1], 200)
     Q = np.array([ped_traj.pose_at(traj, ts, t)[:2] for t in T]); Q = Q[(Q[:, 1] > Y0) & (Q[:, 1] < Y1)]
     ax.plot(*P(-Q[:, 0], Q[:, 1]), "--", color=col, lw=1.4, zorder=2)
     ax.annotate("", xy=P(-Q[-1, 0], Q[-1, 1]), xytext=P(-Q[-6, 0], Q[-6, 1]), arrowprops=dict(arrowstyle="-|>", color=col, lw=1.2), zorder=2)
     from epoch_marks import choose_marks, pause_point
-    mk = choose_marks(ped_traj, traj, ts, ylim=(Y0 + 0.2, Y1 - 0.9), max_marks=5, step=1.05, gap=0.8)
+    mk = choose_marks(ped_traj, traj, ts, ylim=(Y0 + 0.2, Y1 - 0.9), max_marks=5, step=1.2, gap=0.9)
     for k, (t, x, y, hd) in sorted(enumerate(mk), key=lambda q: -q[1][2]):     # far (larger y) first
         sprite3d(ax, x, y, hd, 0.5 + 0.5 * (k + 1) / len(mk))
-        tx, ty = P(x - 0.45, y)
-        ax.text(tx, ty + 0.15, str(k + 1), fontsize=6, color=INK2, ha="right", va="center", zorder=7)
+        tx, ty = P(x + 0.32, y - 0.12)
+        ax.text(tx, ty, str(k + 1), fontsize=6, color=INK2, ha="left", va="top", zorder=7, fontweight="bold")
     pz = pause_point(ped_traj, traj, ts)
     if pz is not None:
         tx, ty = P(pz[0] + 0.5, pz[1])
@@ -159,8 +166,8 @@ for n, i in enumerate(order):
     ax.text(0.5, -0.02, f"$p$ = {deadline_p(jp[i]):.2f} at the deadline\njoint: {ja_.upper()} ({jo[i]['delay']:.1f} s)   rule: {ra_.upper()} ({ro[i]['delay']:.1f} s)",
             transform=ax.transAxes, fontsize=6.4, ha="center", va="top", color=INK)
     if n == 0:
-        ax.text(*P(-2.9, 0.03, 0.98), "robot", fontsize=6.5, color=INK, ha="center", fontweight="bold", zorder=8)
-        ax.text(*P(1.2, 0.55), "to goal", fontsize=6.5, color=ROBOTC, ha="right", zorder=8)
+        ax.text(*P(-2.9, 0.03, 0.88), "robot", fontsize=6.5, color=INK, ha="center", fontweight="bold", zorder=8)
+        ax.text(*P(0.7, 0.55), "to goal", fontsize=6.5, color=ROBOTC, ha="right", zorder=8)
         ax.annotate("deadline\ngate", xy=P(px - 0.6, -0.3, 0.35), xytext=P(-3.3, -2.3, 0.0), fontsize=6, color="#a0522d",
                     ha="left", arrowprops=dict(arrowstyle="-", color="#a0522d", lw=0.7), zorder=8)
 # operator queue
