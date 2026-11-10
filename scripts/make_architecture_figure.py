@@ -13,7 +13,7 @@ BLUE, ORANGE, AQUA, GRAY, INK, PALE = "#2a78d6", "#eb6834", "#1baf7a", "#8a8a85"
 plt.rcParams.update({"font.family": "serif", "font.serif": ["DejaVu Serif"], "mathtext.fontset": "dejavuserif", "font.size": 8, "pdf.fonttype": 42})
 ROBOT = np.asarray(Image.open(os.path.join(A, "turtlebot3_rgba.png")).convert("RGBA"))
 WORKER = np.asarray(Image.open(os.path.join(A, "worker_front_rgba.png")).convert("RGBA"))
-OPER = np.asarray(Image.open(os.path.join(A, "operator_rgba.png")).convert("RGBA"))
+OPER = np.asarray(Image.open(os.path.join(A, "operator_left_rgba.png")).convert("RGBA"))
 
 
 def img(ax, arr, x, y, h, z=3):
@@ -75,18 +75,21 @@ ax.text(4.92, 5.05 + 0.75, "$p_i$", fontsize=7.5, color=INK, ha="center", va="bo
 ax.text(4.92, 5.05 + 0.05, "action", fontsize=6.6, color=INK, ha="center", va="top")
 
 # ---- operator ---------------------------------------------------------------------------
-ox = 13.25
+ox = 13.3
 ax.text(12.6, 6.35, "Remote operator", ha="center", va="center", fontsize=8.5, color=INK, weight="bold")
-img(ax, OPER, ox, 2.55, 2.75)
-ax.text(10.95, 4.45, "FIFO queue", fontsize=7.3, color=INK, ha="center")
+img(ax, OPER, ox, 2.55, 2.55)
+qy = 3.5                                                  # queue at desk height
+ax.text(10.72, qy + 0.42, "FIFO queue", fontsize=7.3, color=INK, ha="center", va="bottom")
 for i, lab in enumerate(("$R_2$", "$R_5$", "$R_7$")):
-    x = 11.5 - i * 0.58
-    box(ax, x - 0.25, 3.6, 0.5, 0.5, "white", BLUE, lw=1.0, r=0.08, z=2)
-    ax.text(x, 3.85, lab, ha="center", va="center", fontsize=6.8, color=BLUE, zorder=3)
-arrow(ax, (cx + cw - 0.25, 1.8), (10.25, 3.55), col=BLUE, lw=1.1)
-ax.text(10.0, 2.45, "questions\n(robots\nthat ask)", fontsize=7, color=BLUE, ha="left", va="center", linespacing=1.15)
-arrow(ax, (11.78, 3.85), (12.15, 3.85), col=BLUE, lw=1.0)
-ax.text(ox - 0.2, 2.05, r"service time $\tau_a$ per question" "\n" r"answer correct w.p. $\alpha$", ha="center", va="top", fontsize=6.9, color=INK, linespacing=1.25)
+    x = 11.24 - i * 0.52
+    box(ax, x - 0.23, qy - 0.23, 0.46, 0.46, "white", BLUE, lw=1.0, r=0.08, z=2)
+    ax.text(x, qy, lab, ha="center", va="center", fontsize=6.6, color=BLUE, zorder=3)
+# questions: horizontal out of the solver, then straight up into the tail of the queue
+ax.plot([cx + cw - 0.25, 10.2], [1.8, 1.8], color=BLUE, lw=1.1, zorder=2)
+arrow(ax, (10.2, 1.8), (10.2, qy - 0.25), col=BLUE, lw=1.1)
+ax.text(10.32, 2.45, "questions\n(robots\nthat ask)", fontsize=7, color=BLUE, ha="left", va="center", linespacing=1.15)
+arrow(ax, (11.48, qy), (11.85, qy), col=BLUE, lw=1.0)
+ax.text(ox - 0.1, 2.35, r"service time $\tau_a$ per question" "\n" r"answer correct w.p. $\alpha$", ha="center", va="top", fontsize=6.9, color=INK, linespacing=1.25)
 # answer back to the asking robot (R2), routed below and left of the fleet
 path = [(ox - 0.2, 1.2), (ox - 0.2, 0.1), (0.06, 0.1), (0.06, 2.85), (0.85, 2.85)]
 ax.plot(*zip(*path), color=BLUE, lw=1.1, ls=(0, (3, 2)), zorder=2, solid_joinstyle="round")
