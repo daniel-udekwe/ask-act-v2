@@ -109,6 +109,14 @@ This paper studies that coupling. Its starting point is that the joint decision 
 
 We do not claim a quantum advantage. With at most eight robots in one decision epoch, exhaustive search over the $3^N$ joint actions takes milliseconds, and that exact solver is the joint policy in all closed-loop experiments. QAOA is the object of study in the benchmark, not a requirement of the fleet.
 
+Fig.~\ref{fig:architecture} gives an overview of the system.
+\begin{figure*}
+\centering
+\includegraphics[width=\textwidth]{figures/architecture.pdf}
+\caption{System overview. Each robot drives its own lane and estimates the calibrated probability $p_i$ that the pedestrian ahead will cross. Robots that reach their decision deadlines together report their probabilities to the fleet coordinator, which builds one QUBO for the epoch (unary costs from $p_i$, a pairwise queue term for the shared operator, and a penalty that forbids asking and stopping at once) and returns an action to every robot: go, yield or ask. Questions join the remote operator's first-come-first-served queue; each takes service time $\tau_a$, and the answer, correct with probability $\alpha$, is sent back to the robot that asked. The QUBO is minimized exactly in the loop; QAOA is benchmarked offline on the same QUBOs.}
+\label{fig:architecture}
+\end{figure*}
+
 The contributions are as follows.
 \begin{enumerate}
 \item A QUBO formulation of the fleet's go, yield and ask decisions, with a pairwise queue term that prices the shared operator's service time. It needs exactly $2N$ binary variables, contains the single-robot rule as the uncoupled case, and also accounts for imperfect operator answers.
