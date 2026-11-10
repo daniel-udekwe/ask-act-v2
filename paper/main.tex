@@ -63,7 +63,7 @@
 
 \shorttitle{Coordinating questions to a shared operator with a calibrated QUBO}
 
-\title[mode=title]{Who should ask the operator? Coordinating go, yield and ask decisions in a delivery-robot fleet with a calibrated QUBO and a pre-specified QAOA benchmark}
+\title[mode=title]{Coordinating Human Assistance in Multi-Robot Fleets: A QUBO Framework for Joint Go, Yield, and Ask Decisions}
 
 \author[1]{Daniel Udekwe}
 \ead{daudekwe@afit.edu.ng}
@@ -86,7 +86,9 @@
 \shortauthors{Udekwe (2026)}
 
 \begin{abstract}
-Delivery robots that meet pedestrians must decide whether to continue, yield, or ask a remote operator what the pedestrian intends. A fleet shares one operator who answers one question at a time, so each robot's best action depends on the others. We formulate the fleet's decisions at a shared decision epoch as a quadratic unconstrained binary optimization (QUBO) problem with exactly two qubits per robot, in which calibrated crossing probabilities set the costs and a pairwise term prices the operator's queue. We evaluate it in closed loop under an analysis plan frozen before any final run. With correct operator answers, the exact joint solver cut mean delay per robot from 6.75 to 3.80~s (six robots) and from 7.01 to 3.93~s (eight robots) against per-robot rules that ask equally often, with no collisions. With answers correct 90\% of the time it remained faster but collided with 1.0--1.4\% of crossing robots against none for the matched rule, so that hypothesis was not supported. The quantum approximate optimization algorithm (QAOA) at depth 3 placed 16, 62 and 215 times the uniform-random probability on the optimum at 8, 12 and 16 qubits in noiseless simulation, in all 60 instances, and kept a 7--23-fold median gain on the \textit{ibm\_kingston} processor. A post-hoc analysis shows that this gain comes from learning that every robot should halt, not from choosing which robots should ask. The simulator agreed with Gazebo on every collision outcome in 320 robot runs. We claim no quantum advantage.
+As delivery robots become increasingly deployed in shared environments, their ability to coordinate decisions and access limited human assistance is essential for safe and efficient operation. However, when multiple robots share a remote operator, independent go, yield, and ask decisions can generate competing requests and inefficiently allocate human attention. Existing decision-making approaches provide limited support for jointly optimizing these actions while accounting for pedestrian uncertainty, operator capacity, and response reliability. This study develops a joint decision-making framework for coordinating go, yield, and ask actions across delivery-robot fleets. The framework formulates the coordination problem as a quadratic unconstrained binary optimization (QUBO) model incorporating individual robot risks, action costs, and pairwise competition for operator attention. Its performance is evaluated using an exhaustive classical solver in closed-loop simulations, while a pre-specified quantum approximate optimization algorithm (QAOA) benchmark independently examines the optimization formulation. Joint optimization reduced decision delay relative to matched per-robot decision-making under perfect operator responses, with no collisions observed in these experiments. Under imperfect operator responses, however, the joint solver produced more collisions, and collision non-inferiority was not established. QAOA outperformed uniform sampling across all benchmark instances, although its gains primarily reflected a preference for halt actions rather than effective coordination of assistance requests. Gazebo experiments further assessed consistency between offline predictions and simulated robot execution. These findings demonstrate the potential of joint optimization for coordinating human assistance across robot fleets while highlighting operator reliability and safety under uncertainty as critical considerations for practical deployment.
+
+
 \end{abstract}
 
 \begin{keywords}
@@ -121,8 +123,14 @@ Section~\ref{sec:related} reviews related work. Section~\ref{sec:method} describ
 \section{Related work}
 \label{sec:related}
 
-\paragraph{Robots that ask humans, and operators shared by several robots.}
-Collaborative control treats the human as a resource that the robot may query when its own perception is unreliable \citep{fong2003asker}. More recent planners ask for help only when a calibrated uncertainty measure says the robot's choice is ambiguous, with statistical guarantees on how often they ask \citep{ren2023knowno}. When several robots share one operator, deciding which robot the operator should attend to becomes a scheduling problem; \citet{dahiya2021operator} model it as a restless bandit and allocate operators to robots over time. Our setting is narrower and faster: the operator's attention is requested at a decision deadline a few seconds long, and the question is which of the robots that arrive together should ask at all.
+\paragraph{Multi-robot task allocation.}
+Multi-robot task allocation assigns robots to tasks so as to optimize a team objective, and its taxonomies distinguish single- and multi-task robots, instantaneous and time-extended assignment, and independent and interdependent utilities \citep{gerkey2004taxonomy,korsah2013taxonomy}. Our problem inverts the usual roles: the scarce resource is not a robot but one human, and the ``tasks'' are the robots' own questions. It is an instantaneous assignment with interdependent utilities, because each question's value depends on how many others are asked in the same window.
+
+\paragraph{Human attention allocation and operator scheduling.}
+How many robots one person can supervise has been measured as fan-out, the ratio of a robot's autonomous time to the attention it needs \citep{olsen2004fanout}, and human-factors reviews document how operator workload, queueing and switching costs limit multi-robot supervision \citep{chen2014teaming}. Algorithmic work allocates operators to robots over time: \citet{dahiya2021operator} model it as a restless bandit, and \citet{swamy2020scaled} learn which robot an operator should control at each moment from the operator's own past choices. These methods schedule attention over long horizons, typically minutes to hours of fleet operation. We study a different, short-horizon decision: in a window of about one second, several robots reach a safety-relevant deadline together, and the question is which of them should ask at all, given that the operator answers one question at a time and that every robot that does not ask must go or yield immediately.
+
+\paragraph{Robots that ask humans, and shared autonomy.}
+Collaborative control treats the human as a resource that the robot may query when its own perception is unreliable \citep{fong2003asker}. More recent planners ask for help only when a calibrated uncertainty measure says the robot's choice is ambiguous, with statistical guarantees on how often they ask \citep{ren2023knowno}. Shared autonomy blends human input with the robot's own policy under uncertainty about the human's goal \citep{javdani2018shared}. In these works the human and the robot are paired; the coupling between robots that compete for one human, which is the subject of this paper, does not arise.
 
 \paragraph{Pedestrian intent, calibration and decisions.}
 Predicting whether a pedestrian will cross is a well-studied perception task \citep{rasouli2019pie}, and social navigation more broadly is surveyed by \citet{mavrogiannis2023core}. Modern neural predictors are often overconfident \citep{guo2017calibration}, and post-hoc methods such as isotonic regression \citep{zadrozny2002isotonic} restore calibration on average. Decision-focused learning argues that a predictor should be judged by the decisions it drives rather than by its average error \citep{elmachtoub2022spo}. In the single-robot setting we found that calibration measured over all samples can look good while the probabilities at the decision deadline remain poorly calibrated, and proposed decision-aware calibration fitted only on that window \citep{udekwe2026askoract}. Here we ask whether calibration still matters when the decision is made by an optimizer over several robots.
@@ -130,14 +138,16 @@ Predicting whether a pedestrian will cross is a well-studied perception task \ci
 \paragraph{QUBO formulations and QAOA.}
 Many combinatorial problems can be written as QUBO or Ising models \citep{lucas2014ising,glover2019qubo}. QAOA alternates a cost and a mixing Hamiltonian for $p$ layers and tunes the $2p$ angles classically \citep{farhi2014qaoa}. Parameter transfer between depths (the INTERP heuristic) makes optimization at larger $p$ tractable \citep{zhou2020qaoa}. Warm starts from a classical solution \citep{egger2021warm} and the conditional value at risk (CVaR) objective \citep{barkoutsos2020cvar} often improve results on constrained problems. Inequality constraints usually need slack qubits; unbalanced penalization avoids them at the risk of shifting the minimum \citep{montanez2024unbalanced}. Hardware studies show that QAOA's performance on current processors is limited by noise and by the routing overhead of problems that do not match the device's connectivity \citep{harrigan2021qaoa}. A recent review stresses that claims of quantum advantage in optimization need careful classical baselines \citep{abbas2024challenges}, and noisy intermediate-scale devices are not expected to beat classical solvers on small problems \citep{preskill2018nisq}.
 
-\paragraph{Quantum optimization in robotics and logistics.}
-Quantum annealing has been used to route automated guided vehicles without collision \citep{ohzeki2019agv}, and \citet{petschnigg2019quantum} survey quantum computation for robotics. Most of these studies use synthetic or idealized costs. To our knowledge, none builds the QUBO coefficients from a calibrated perception model and then measures, in closed loop, how the resulting decisions affect safety and delay.
+\paragraph{Risk-sensitive and safety-constrained decisions.}
+Minimizing expected cost trades rare severe outcomes against frequent small ones at a fixed exchange rate. Chance-constrained planning instead bounds the probability of failure directly \citep{blackmore2011chance}, and \citet{majumdar2020risk} argue that the choice of risk measure should itself be justified. Our main formulation minimizes expected cost, as the single-robot rule did; Section~\ref{sec:res-posthoc} adds a post-hoc comparison with a per-robot chance constraint.
 
+\paragraph{Quantum optimization for multi-robot coordination.}
+Quantum annealing has been used to route automated guided vehicles without collision \citep{ohzeki2019agv}, multi-robot path planning has been cast as a QUBO with problem-size reduction for current hardware \citep{gonzalez2026qubopath}, and \citet{petschnigg2019quantum} survey quantum computation for robotics. These studies coordinate robots' motion with synthetic or geometric costs. To our knowledge, none builds the QUBO coefficients from a calibrated perception model, couples robots through a shared human, or measures in closed loop how the resulting decisions affect safety and delay.
 
 \section{Methodology}
 \label{sec:method}
 
-\begin{figure*}[t]
+\begin{figure*}
 \centering
 \resizebox{\textwidth}{!}{%
 \begin{tikzpicture}[font=\footnotesize,
@@ -203,7 +213,7 @@ We consider a fleet of $N$ delivery robots on a campus, each driving its own rou
 \subsection{Cost model and the per-robot rule}
 \label{sec:cost}
 
-Each robot's action is scored in units of robot-seconds. A collision costs $C$; yielding to a pedestrian who was not going to cross costs $\tau_s$; asking costs the robot's waiting time $\tau_a$ plus the operator's time $\kappa$, and, if answers can be wrong, the expected cost of driving on after a wrong ``not crossing'' answer. With crossing probability $p_i$, the expected cost of each action is
+Each robot's action is scored in units of robot-seconds. A collision costs $C$; yielding to a pedestrian who was not going to cross costs $\tau_s$; asking costs the robot's waiting time $\tau_a$ plus the operator's time $\kappa$, and, if answers can be wrong, the expected cost of acting on a wrong answer (Table~\ref{tab:confusion}). The pre-registered model counts only the more dangerous error, a crossing pedestrian reported as not crossing: With crossing probability $p_i$, the expected cost of each action is
 \begin{align}
 L_i(\pgo) &= C\,p_i, \nonumber\\
 L_i(\pstop) &= \tau_s\,(1-p_i), \label{eq:unary}\\
@@ -216,7 +226,35 @@ We fix $C = 100$, $\tau_s = 10$ and $\tau_a = 1.5$: a collision costs ten unnece
 \end{equation}
 and when the band is empty the robot goes below $p_i = \tau_s/(C+\tau_s)$ and stops above it. Sweeping $\kappa$ moves the band and with it how often a robot asks; we call these rules \emph{per-robot rules}. The original Ask or Act rule, with a fixed band $[0.2,\,0.8]$, is a further reference. Fig.~\ref{fig:costs} shows the three expected costs and the resulting bands for the primary parameters.
 
-\begin{figure*}[t]
+\paragraph{Operator errors.} The simulated operator errs symmetrically: whatever the pedestrian does, the answer is wrong with probability $1-\alpha$ (Table~\ref{tab:confusion}). A wrong ``not crossing'' answer about a crossing pedestrian sends the robot on and risks a collision; a wrong ``crossing'' answer about a pedestrian who was not going to cross makes the robot yield unnecessarily. The pre-registered ask cost in Eq.~\eqref{eq:unary} includes only the first outcome. The expected cost of asking under the full confusion model is
+\begin{equation}
+L_i^{\text{sym}}(\pask) = \tau_a + \kappa + (1-\alpha)\big[C\,p_i + \tau_s(1-p_i)\big],
+\label{eq:asksym}
+\end{equation}
+which moves the asking band of Eq.~\eqref{eq:band} to
+\begin{equation}
+\frac{\tau_a+\kappa+(1-\alpha)\tau_s}{\alpha C+(1-\alpha)\tau_s} < p_i < \frac{\alpha\tau_s-\tau_a-\kappa}{\alpha\tau_s+(1-\alpha)C}
+\label{eq:bandsym}
+\end{equation}
+($0.044 < p_i < 0.316$ at $\alpha = 0.9$, against $0.033 < p_i < 0.35$). With $\alpha = 1$ the two models coincide. All pre-registered results use Eq.~\eqref{eq:unary}; Section~\ref{sec:res-posthoc} repeats the imperfect-answer comparison with Eq.~\eqref{eq:asksym}.
+
+\begin{table}
+\centering
+\caption{Operator confusion model and the outcome of each answer for a robot that asks. Each answer is correct with probability $\alpha$, independently of the pedestrian's intent.}
+\label{tab:confusion}
+\begin{tabular*}{\columnwidth}{@{\extracolsep{\fill}}lll}
+\toprule
+ & Answer ``crossing'' & Answer ``not crossing'' \\
+\midrule
+Pedestrian crosses & $\alpha$: robot yields & $1-\alpha$: robot goes; \\
+ & (no further cost) & collision risk, cost $C$ \\
+Does not cross & $1-\alpha$: robot yields & $\alpha$: robot goes \\
+ & unnecessarily, cost $\tau_s$ & (no further cost) \\
+\bottomrule
+\end{tabular*}
+\end{table}
+
+\begin{figure*}
 \centering
 \includegraphics[width=\textwidth]{figures/costs.pdf}
 \caption{Expected cost of each action for one robot as a function of its calibrated crossing probability (Eq.~\ref{eq:unary}; $C = 100$, $\tau_s = 10$, $\tau_a = \kappa = 1.5$). Shading marks the cheapest action. With perfect answers the robot asks for $0.03 < p_i < 0.7$; when answers are wrong 10\% of the time, asking carries part of the collision risk and the band shrinks to $0.033 < p_i < 0.35$.}
@@ -236,14 +274,24 @@ f(\mathbf{a},\mathbf{s}) = \sum_{i=1}^{N} \Big[ &C\,p_i\,(1-a_i-s_i) + \tau_s(1-
 The last term forbids a robot from both asking and stopping; $\lambda_x$ is chosen large enough that no such state is ever optimal, which the test suite checks for every instance. The queue term is pairwise, so the problem is a QUBO in exactly $2N$ variables with no slack. With $q = 0$ it separates into the per-robot rule. The exclusion weight is set to $\lambda_x = 2\,(\Delta + q(N-1) + 1)$, where $\Delta$ is the spread of the unary costs, so that changing any one variable can never make a state with $a_i = s_i = 1$ cheaper than its feasible neighbours.
 
 \paragraph{Ising form.} Writing $f = c_0 + \sum_k c_k x_k + \sum_{k<l} Q_{kl}\, x_k x_l$ over the $2N$ variables $x = (a_1,\dots,a_N,s_1,\dots,s_N)$ and substituting $x_k = (1 - Z_k)/2$ gives the cost Hamiltonian
+% \begin{equation}
+% H_C = c_0' + \sum_{k} h_k Z_k + \sum_{k<l} J_{kl}\, Z_k Z_l, \quad
+% h_k = -\frac{c_k}{2} - \frac{1}{4}\sum_{l \ne k} Q_{kl}, \quad J_{kl} = \frac{Q_{kl}}{4}.
+% \label{eq:ising}
+% \end{equation}
+
 \begin{equation}
-H_C = c_0' + \sum_{k} h_k Z_k + \sum_{k<l} J_{kl}\, Z_k Z_l, \quad
-h_k = -\frac{c_k}{2} - \frac{1}{4}\sum_{l \ne k} Q_{kl}, \quad J_{kl} = \frac{Q_{kl}}{4}.
+\begin{aligned}
+H_C &= c_0' + \sum_{k} h_k Z_k + \sum_{k<l} J_{kl}\, Z_k Z_l, \\
+h_k &= -\frac{c_k}{2} - \frac{1}{4}\sum_{l \ne k} Q_{kl}, \\
+J_{kl} &= \frac{Q_{kl}}{4}.
+\end{aligned}
 \label{eq:ising}
 \end{equation}
+
 For Eq.~\eqref{eq:qubo} the linear coefficients are $c_{a_i} = \tau_a + \kappa + C p_i(1-\alpha) - C p_i$ and $c_{s_i} = \tau_s(1-p_i) - C p_i$, so the calibrated probabilities enter only through the local fields $h_k$. The couplings do not depend on the probabilities: $J_q = q/4$ between every pair of ask qubits and $J_x = \lambda_x/4$ between each robot's ask and stop qubits. The interaction graph (Fig.~\ref{fig:circuit}b) is therefore a complete graph on the $N$ ask qubits with one pendant stop qubit per robot, $N(N+1)/2$ couplings in all (10, 21 and 36 at $N = 4$, 6 and 8).
 
-\begin{figure*}[t]
+\begin{figure*}
 \centering
 \begin{minipage}[b]{0.66\textwidth}\centering
 \resizebox{\linewidth}{!}{%
@@ -302,7 +350,7 @@ For Eq.~\eqref{eq:qubo} the linear coefficients are $c_{a_i} = \tau_a + \kappa +
 \subsection{Solvers}
 \label{sec:solvers}
 
-\paragraph{Exact.} Exhaustive search over the $3^N$ joint actions gives the optimum of every instance (59{,}049 action vectors at $N = 10$) and is the joint policy in all closed-loop experiments. OR-Tools CP-SAT \citep{ortools} and simulated annealing \citep{kirkpatrick1983sa} on the same QUBO were used during development as further references.
+\paragraph{Exact.} Exhaustive search over the $3^N$ joint actions gives the optimum of every instance (59{,}049 action vectors at $N = 10$) and is the joint policy in all closed-loop experiments. OR-Tools CP-SAT \citep{ortools} and simulated annealing \citep{kirkpatrick1983sa} on the same QUBO were used during development as further references. The queue formulation is in fact classically easy, which we noticed only after the final runs. The queue cost depends only on the number $k$ of robots that ask, so for any $k$ the best choice is the $k$ robots with the largest saving $g_i = \min\{L_i(\pgo), L_i(\pstop)\} - L_i(\pask)$, and the optimum follows from sorting the savings and scanning $k = 0,\dots,N$ in $O(N \log N)$ time. This greedy allocation returned the optimum in every final instance and in 2{,}000 random ones. The coupling that makes the problem a QUBO is therefore benign; harder couplings, such as the corridor term or heterogeneous service times, would remove this shortcut.
 
 \paragraph{QAOA circuit.} QAOA prepares the state
 \begin{equation}
@@ -318,7 +366,7 @@ with the transverse-field mixer $H_M = \sum_k X_k$ \citep{farhi2014qaoa}. Before
 \end{equation}
 with $\gamma_0^{(p)} = \gamma_{p+1}^{(p)} = 0$ and the same rule for $\boldsymbol\beta$, and two come from random points; the best of the three is kept. Fig.~\ref{fig:landscape} shows the depth-1 landscape $F_1(\gamma,\beta)$ for one final instance. During development we also tested a warm start from each robot's own optimum \citep{egger2021warm} and a CVaR objective with level 0.1 \citep{barkoutsos2020cvar}. Neither was consistently better on the queue formulation, so the pre-specified benchmark uses the standard circuit. Circuits are built and transpiled with Qiskit \citep{javadi2024qiskit}, and the test suite checks that the statevector simulator reproduces Qiskit's statevector for the same circuits.
 
-\begin{algorithm}[t]
+\begin{algorithm}
 \caption{QAOA training with INTERP depth growth}
 \label{alg:qaoa}
 \begin{algorithmic}[1]
@@ -334,7 +382,7 @@ with $\gamma_0^{(p)} = \gamma_{p+1}^{(p)} = 0$ and the same rule for $\boldsymbo
 \end{algorithmic}
 \end{algorithm}
 
-\begin{figure}[t]
+\begin{figure}
 \centering
 \includegraphics[width=\columnwidth]{figures/landscape.pdf}
 \caption{Depth-1 landscape of the expected normalized cost $F_1(\gamma,\beta)$ for the first final instance with $N = 4$ (8 qubits). The marker is the optimum found by Algorithm~\ref{alg:qaoa}.}
@@ -353,7 +401,7 @@ The simulator runs the Ask or Act offline simulator for $N$ robots in lockstep a
 
 Algorithm~\ref{alg:epoch} summarizes one decision epoch for the joint solver.
 
-\begin{algorithm}[t]
+\begin{algorithm}
 \caption{One decision epoch with the joint solver}
 \label{alg:epoch}
 \begin{algorithmic}[1]
@@ -406,7 +454,7 @@ Table~\ref{tab:conf} reports the four closed-loop hypotheses. With perfect answe
 
 With answers correct 90\% of the time (H4 and H5), the joint solver was again about \SI{1.8}{s} faster, but it collided with 1.36\% ($N = 6$) and 1.04\% ($N = 8$) of crossing robots against none for the matched rule. The upper bounds of the difference, 1.68 and 1.28 percentage points, exceed the 0.5-point margin, so H4 and H5 are not supported. At $N = 8$ the two methods' question rates also differed by 15.8\%, more than the 10\% allowed; as pre-specified, this is reported as a deviation and $\kappa^\star$ was not re-tuned.
 
-\begin{table*}[t]
+\begin{table*}
 \centering
 \caption{Confirmatory closed-loop results (noisy tracking, decision-aware calibration, 1{,}000 paired epochs each). Delay is mean delay per robot against free driving; collisions are per crossing robot. $p_{\text{Holm}}$: one-sided Wilcoxon on epoch means, Holm-corrected across the four rows. UB: one-sided 95\% bootstrap upper bound of the collision difference (joint $-$ rule); margin 0.5 percentage points (pp).}
 \label{tab:conf}
@@ -432,14 +480,14 @@ Fig.~\ref{fig:pareto} shows the two policy families as $\kappa$ is swept. At eve
 
 The fixed Ask or Act band is the fastest method in the study (3.16 and \SI{3.26}{s}), also without collisions, but it asks three to four times as often as the joint solver (6.0 and 8.0 questions per epoch) and leaves 0.8 and 1.4 questions per epoch unanswered when the operator cannot keep up, against at most 0.003 for the joint solver. Its speed comes from operator time. Fig.~\ref{fig:epoch} shows how the two policies differ in one final epoch with six robots. The joint solver asked about two pedestrians whose probabilities were near the middle of the range (a late-turning pedestrian who crossed and one who did not), and let the operator answer both within \SI{3}{s}; the matched rule asked about three pedestrians, so its last robot waited for two earlier answers. Mean delay in this epoch was \SI{4.5}{s} under the joint solver and \SI{5.7}{s} under the rule. The joint solver is not better for every robot: robot R2, facing a hesitating pedestrian who did not cross ($p = 0.65$), was told to yield and waited \SI{8.4}{s}, whereas the rule asked and drove on after \SI{6.7}{s}.
 
-\begin{figure*}[t]
+\begin{figure*}
 \centering
 \includegraphics[width=\textwidth]{figures/epoch_3d.pdf}
 \caption{One final decision epoch with six robots (noisy tracking, decision-aware calibration), drawn lane by lane in order of arrival at the decision deadline. Each lane shows the robot (a TurtleBot3) and its path, the stretch over which it observes the engaged pedestrian, its decision deadline (drawn as a gate where the pedestrian is \SI{0.6}{m} ahead), and the pedestrian's positions along its path, about \SI{1}{m} of walking apart (numbered in time order, fading for earlier times; pauses are labelled). Below each lane: the calibrated probability at the deadline and the action and delay under the joint solver and the matched per-robot rule. Bottom: the operator's queue under each policy. Robot and pedestrians are enlarged for visibility.}
 \label{fig:epoch}
 \end{figure*} Replacing the queue term by a hard budget of $\lceil N/3\rceil$ questions gave almost the same delay (3.81 and \SI{3.86}{s}) at 2.0 and 3.0 questions per epoch.
 
-\begin{figure*}[t]
+\begin{figure*}
 \centering
 \includegraphics[width=\textwidth]{figures/pareto.pdf}
 \caption{Questions per decision epoch against mean delay per robot, for the per-robot rule and the joint solver as the operator cost $\kappa$ varies (noisy tracking, decision-aware calibration, $\alpha = 1$, 1{,}000 epochs per point). The arrows join the matched pairs of H1 ($N = 6$) and H2 ($N = 8$). No method collided in these settings.}
@@ -453,7 +501,7 @@ Table~\ref{tab:calib} shows collisions by calibration. With perfect answers the 
 
 All joint variants that ask about pedestrians with moderate probabilities collided at $\alpha = 0.9$. With decision-aware calibration, $\alpha$-aware per-robot rules with $\kappa \ge 1.5$ never collided; with conventional or raw calibration the same rules collided with up to 1.4\% of crossing robots under noisy tracking, so calibration matters for the per-robot family too. A joint solver that wrongly assumes perfect answers had a collision rate similar to the $\alpha$-aware solver (1.42\% against 1.36\% at $N = 6$) while asking three times as often.
 
-\begin{table}[t]
+\begin{table}
 \centering
 \caption{Collisions per crossing robot (\%) for the joint solver, by calibration (exploratory; 1{,}000 epochs per cell; 3{,}321 crossing robots at $N = 6$, 4{,}538 at $N = 8$).}
 \label{tab:calib}
@@ -479,7 +527,7 @@ H3 was met at every size: all 20 instances passed at $N = 4$, 6 and 8 (share 1.0
 
 \paragraph{What the trained circuits learn (post hoc).} Fig.~\ref{fig:qaoaparams} traces the trained circuits on the 60 final instances; this analysis was not pre-specified. The optimized schedules are similar across instances and sizes (panel a), and the INTERP growth converges in a few hundred evaluations at each depth (panel c). Panels (b) and (d) show what the lift measures. As depth grows, the state concentrates on the $2^N$ \emph{halt} states in which every robot either asks or stops (95--99.5\% of the probability at depth 3, against $2^{-N}$ under uniform sampling), and the lift approaches $2^N$ (16, 64 and 256). Inside that subspace the distribution is almost uniform: its total-variation distance from uniform is at most 0.03, and the optimum receives 0.96--0.99 times the probability of an average halt state. In every final instance the optimum is a halt state, so the circuits gain their lift by ruling out going (expensive at these probabilities) and the infeasible ask-and-stop states, not by choosing which robots should ask. The energy differences inside the halt subspace are small: the gap between the optimum and the next state is 0.3--0.75\% of the standard deviation of the spectrum, which is dominated by the go costs and the exclusion penalty, and one to three layers do not resolve it.
 
-\begin{figure*}[t]
+\begin{figure*}
 \centering
 \includegraphics[width=\textwidth]{figures/qaoa_params.pdf}
 \caption{QAOA training on the 60 final instances (noiseless). (a) Optimized angles of each layer at depth 3 (median and interquartile range over 20 instances per size). (b) Lift over uniform sampling as depth grows; dotted lines mark $2^N$. (c) Best expected normalized cost $F_p$ found by COBYLA during INTERP depth growth, for the first instance of each size. (d) Probability on the $2^N$ states in which every robot either asks or stops; dotted lines mark uniform sampling. Panels (b) and (d) are a post-hoc analysis.}
@@ -488,14 +536,14 @@ H3 was met at every size: all 20 instances passed at $N = 4$, 6 and 8 (share 1.0
 
 On \textit{ibm\_kingston} the optimum was sampled in all 40 circuits (Table~\ref{tab:hw}, Fig.~\ref{fig:qaoa}b). At $N = 4$ the hardware retained most of the noiseless lift (7.3 against 8.6 at depth 1, 11.6 against 15.3 at depth 2). At $N = 6$ the depth-1 circuit kept 20.0 of 26.4, but the depth-2 circuit, with 149 two-qubit gates after routing, reached only 22.5 against 55.4 noiselessly: noise removed most of the second layer's gain. The share of feasible samples stayed well above random at every size, but fell with depth on hardware.
 
-\begin{figure*}[t]
+\begin{figure*}
 \centering
 \includegraphics[width=\textwidth]{figures/qaoa.pdf}
 \caption{QAOA on the queue formulation. (a) Lift over uniform sampling (probability on the optimum divided by its uniform probability) for 20 final instances per size, noiseless, depth 3; lines show medians, dashed line the pre-specified threshold. (b) The same quantity on \textit{ibm\_kingston} and in noiseless simulation for the 40 pre-registered circuits ($p$: QAOA depth; CZ: two-qubit gates after transpilation).}
 \label{fig:qaoa}
 \end{figure*}
 
-\begin{table}[t]
+\begin{table}
 \centering
 \caption{Hardware results on \textit{ibm\_kingston}, medians over 10 final instances, 4{,}000 shots each. Lift: probability on the optimum over its uniform probability. Feasible: share of samples with no robot both asking and stopping.}
 \label{tab:hw}
@@ -518,7 +566,7 @@ $N$ & $p$ & CZ & Sim. & HW & Sim. & HW & Rand. \\
 
 All four pre-specified criteria were met on the final Gazebo epochs (Table~\ref{tab:gazebo}), with no runs excluded. Collision outcomes agreed in all 320 robot runs (no collisions on either side). In joint mode, 88\% of robots received the same action as offline. The disagreements were between near-tied robots: in all 40 joint epochs the Gazebo assignment cost at most 2.15 units more than the offline one under the offline probabilities, less than one question.
 
-\begin{table}[t]
+\begin{table}
 \centering
 \caption{Gazebo against the offline simulator on the 20 final epochs ($N = 4$; 80 robot runs per row).}
 \label{tab:gazebo}
