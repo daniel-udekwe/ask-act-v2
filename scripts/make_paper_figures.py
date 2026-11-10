@@ -18,9 +18,16 @@ plt.rcParams.update({"font.family": "serif", "font.size": 8, "axes.edgecolor": G
 # Fig. 2: operator load against delay
 s = pd.read_csv(os.path.join(R, "exploratory_summary.csv"))
 s = s[(s.condition == "noisy") & (s.calibration == "isotonic_dw")]
-fig, axes = plt.subplots(1, 2, figsize=(7.0, 2.9), sharey=True)
+DL = os.path.join(ROOT, "results", "posthoc", "deadline.csv.gz")
+dl = pd.read_csv(DL) if os.path.exists(DL) else None
+fig, axes = plt.subplots(1, 2, figsize=(7.0, 3.0), sharey=True)
 for ax, N in zip(axes, (6, 8)):
     x = s[s.N == N]
+    if dl is not None:
+        z = dl[(dl.N == N) & dl.method.str.startswith("deadline")]
+        z = z.groupby("method").apply(lambda g: pd.Series(dict(q=g.groupby("epoch").n_asks.sum().mean(), d=g.delay.mean(),
+                                                                k=float(g.name[10:])))).sort_values("k")
+        ax.plot(z.q, z.d, "--^", color=GRAY, ms=3.5, lw=1.1, label="Per-robot rule at the deadline (post hoc)")
     r = x[x.method.str.match(r"rule_k[\d.]+$")].copy(); r["k"] = r.method.str[6:].astype(float); r = r.sort_values("k")
     j = x[x.method.str.match(r"joint_k[\d.]+$") | (x.method == "joint")].copy()
     j["k"] = j.method.map(lambda m: 1.5 if m == "joint" else float(m[7:])); j = j.sort_values("k")
@@ -39,8 +46,8 @@ for ax, N in zip(axes, (6, 8)):
     ax.set_xlabel("Questions per decision epoch")
 axes[0].set_ylabel("Mean delay per robot (s)")
 h_, l_ = axes[0].get_legend_handles_labels()
-fig.legend(h_, l_, loc="lower center", ncol=3, fontsize=7.5, bbox_to_anchor=(0.5, -0.01))
-fig.tight_layout(rect=(0, 0.08, 1, 1)); fig.savefig(os.path.join(OUT, "pareto.pdf")); plt.close(fig)
+fig.legend(h_, l_, loc="lower center", ncol=2 if dl is not None else 3, fontsize=7.5, bbox_to_anchor=(0.5, -0.01))
+fig.tight_layout(rect=(0, 0.14 if dl is not None else 0.08, 1, 1)); fig.savefig(os.path.join(OUT, "pareto.pdf")); plt.close(fig)
 
 # Fig. 3: QAOA lift, noiseless benchmark and hardware
 q = pd.read_csv(os.path.join(R, "qaoa_h2.csv"))

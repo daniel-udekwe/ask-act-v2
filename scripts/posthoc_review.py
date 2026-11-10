@@ -9,6 +9,11 @@ Stages (all noisy/nominal tracking, decision-aware calibration):
             joint_sym / rule_sym_matched     symmetric operator-error model, re-matched kappa*
             joint_sym_eps<e>                 symmetric model + per-robot collision-risk cap e
           (results/posthoc/alpha.csv.gz)
+  deadline final seeds, N = 6 and 8, noisy, perfect answers: the joint solver (kappa = q = 1.5)
+          and the same solver with no queue term (q = 0) for kappa in a grid. With q = 0 the
+          problem separates, so each robot applies the per-robot cost rule, but at its deadline and
+          inside the joint execution mode. This separates the gain of deciding at the deadline from
+          the gain of coordinating questions (results/posthoc/deadline.csv.gz)
   grid    final seeds, e < 300, N = 6, noisy: answer accuracy x collision-to-stop cost ratio,
           joint solver (kappa = 1.5, q = 1.5) and per-robot rule (kappa = 1.5), symmetric model,
           per-question answers (results/posthoc/grid.csv.gz)
@@ -85,6 +90,10 @@ def methods(stage, N, kstar_sym=None, alpha=0.9, C=100.0):
     if stage == "grid":
         return [("joint_sym", "joint", dict(C=C, kappa=KAPPA, q=Q, alpha=alpha, model="symmetric")),
                 ("rule_sym", "rule", dict(C=C, kappa=KAPPA, alpha=alpha, model="symmetric"))]
+    if stage == "deadline":
+        return [("joint", "joint", dict(C=C, kappa=KAPPA, q=Q, alpha=1.0, model="collision_only"))] + \
+               [(f"deadline_k{k:g}", "joint", dict(C=C, kappa=k, q=0.0, alpha=1.0, model="collision_only"))
+                for k in (0.5, 1.0, 1.5, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0)]
     if stage == "match":
         return [("joint_sym", "joint", dict(C=C, kappa=KAPPA, q=Q, alpha=alpha, model="symmetric"))] + \
                [(f"rule_sym_k{k:g}", "rule", dict(C=C, kappa=k, alpha=alpha, model="symmetric"))
@@ -141,7 +150,7 @@ def run(jobs, out, workers):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("stage", choices=["match", "alpha", "grid"])
+    ap.add_argument("stage", choices=["match", "alpha", "grid", "deadline"])
     ap.add_argument("--workers", type=int, default=2)
     a = ap.parse_args()
     os.makedirs(OUT, exist_ok=True)
@@ -164,6 +173,9 @@ def main():
         ks = pd.read_csv(os.path.join(OUT, "match_sym.csv")).set_index("N").kappa_star.to_dict()
         jobs = [("alpha", c, ep, N, fin_pool, 8_100_000, {"kstar": ks}) for N in (6, 8) for c in ("noisy", "nominal") for ep in chunks(1000, 50)]
         run(jobs, os.path.join(OUT, "alpha.csv.gz"), a.workers)
+    elif a.stage == "deadline":
+        jobs = [("deadline", "noisy", ep, N, fin_pool, 8_100_000, {"alpha": 1.0}) for N in (6, 8) for ep in chunks(1000, 50)]
+        run(jobs, os.path.join(OUT, "deadline.csv.gz"), a.workers)
     else:
         jobs = [("grid", "noisy", ep, 6, fin_pool, 8_100_000, {"alpha": al, "C": TAU_S * r})
                 for al in (0.8, 0.85, 0.9, 0.95, 1.0) for r in (2.5, 5.0, 10.0, 20.0, 50.0) for ep in chunks(300, 150)]
