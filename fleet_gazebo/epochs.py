@@ -10,7 +10,7 @@ DT = 0.05
 LANE = 10.0        # m between lanes in the Gazebo world
 
 
-def build_epoch(pool_csv, condition, N, seed, jitter=1.0):
+def build_epoch(pool_csv, condition, N, seed, jitter=1.0, crossing_only=False):
     """Return (labels, shifts) for one epoch.
 
     labels : Ask or Act scenario labels (generate_scenarios.build), one per robot
@@ -19,6 +19,8 @@ def build_epoch(pool_csv, condition, N, seed, jitter=1.0):
     import generate_scenarios as gs                     # Ask or Act repository on sys.path
     pool = pd.read_csv(pool_csv)
     pool = pool[(pool.condition == condition) & pool.reached_deadline & (pool.calibration == "isotonic_dw")]
+    if crossing_only:                                   # stress validation: crossing pedestrians only
+        pool = pool[pool.intent == "crossing"]
     pool = pool.drop_duplicates("scenario").reset_index(drop=True)
     rng = np.random.default_rng([seed, N])
     pick = pool.iloc[rng.choice(len(pool), size=N, replace=False)]
@@ -38,3 +40,13 @@ def band(kappa, C=100.0, tau_s=10.0, tau_a=1.5):
     """Per-robot cost-model band (go below lo, stop above hi), as in scripts/pareto.py."""
     ask = tau_a + kappa
     return min(ask / C, tau_s / (C + tau_s)), max(1.0 - ask / tau_s, tau_s / (C + tau_s))
+
+
+# Methods for the near-collision stress validation (post hoc): bands that let robots drive past
+# crossing pedestrians, so that both collision and non-collision outcomes occur.
+STRESS_BANDS = {"always_go": (2.0, 3.0),       # never yields, never asks
+                "risky": (0.5, 0.5)}           # goes below p = 0.5, yields above, never asks
+
+
+def method_band(method, kappa):
+    return STRESS_BANDS.get(method, band(kappa))

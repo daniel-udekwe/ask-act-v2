@@ -40,6 +40,7 @@ STATE_PLUGIN = ('<plugin name="gazebo_ros_state" filename="libgazebo_ros_state.s
                 '<ros><namespace>/</namespace></ros></plugin>')
 GZ_PARAMS = os.path.join(HERE, "gazebo_params.yaml")
 DEV_SEED, FINAL_SEED = 4_700_000, 8_700_000
+STRESS_SEED = 8_750_000      # near-collision stress validation (post hoc)
 KAPPA, Q, ACC = 1.5, 1.5, 1.0
 
 
@@ -101,14 +102,14 @@ def stop(p):
 
 
 def run_epoch(labels, delays, cond, method, world, ep_dir, labels_file, a):
-    from epochs import LANE, band
+    from epochs import LANE, method_band
     N = len(labels)
     os.makedirs(ep_dir, exist_ok=True)
     logs = {n: open(os.path.join(ep_dir, f"{n}.log"), "w") for n in ("gazebo", "spawn", "nodes")}
     procs, ctrls = [], []
     kill_sim()
     time.sleep(1.0)
-    lo, hi = band(KAPPA)
+    lo, hi = method_band(method, KAPPA)
     try:
         procs.append(subprocess.Popen(["gzserver", world, "-s", "libgazebo_ros_init.so", "-s",
                                        "libgazebo_ros_factory.so", "--ros-args", "--params-file", GZ_PARAMS],
@@ -149,7 +150,7 @@ def run_epoch(labels, delays, cond, method, world, ep_dir, labels_file, a):
                  "-p", f"mode:={'joint' if method == 'joint' else 'independent'}",
                  "-p", f"calibration:=isotonic_dw", "-p", f"calib_condition:={cond}",
                  "-p", f"p_low:={lo}", "-p", f"p_high:={hi}",
-                 "-p", f"obs_noise:={a.noise[cond]}", "-p", f"noise_seed:={lab['id']}",
+                 "-p", f"obs_noise:={a.noise[cond] * a.noise_scale}", "-p", f"noise_seed:={lab['id']}",
                  "-p", f"true_intent:={lab['intent']}",
                  "-p", f"result_file:={os.path.join(ep_dir, f'robot_{i}.json')}",
                  "-p", f"decisions_file:={os.path.join(ep_dir, f'decisions_{i}.csv')}"],
@@ -177,9 +178,12 @@ def main():
     ap.add_argument("--N", type=int, default=4)
     ap.add_argument("--epochs", default="0-19", help="e.g. 0-19 or 3")
     ap.add_argument("--conditions", nargs="+", default=["nominal", "noisy"])
-    ap.add_argument("--methods", nargs="+", default=["indep", "joint"], choices=["indep", "joint"])
+    ap.add_argument("--methods", nargs="+", default=["indep", "joint"], choices=["indep", "joint", "always_go", "risky"])
     ap.add_argument("--accuracy", type=float, default=ACC)
     ap.add_argument("--final", action="store_true", help="use the reserved final pool (after the freeze)")
+    ap.add_argument("--stress", action="store_true",
+                    help="near-collision validation (post hoc): final pool, crossing pedestrians only, own seed block")
+    ap.add_argument("--noise-scale", type=float, default=1.0, help="multiply the tracking noise (stress runs)")
     ap.add_argument("--out", default=os.path.join(HERE, "runs"))
     ap.add_argument("--timeout", type=float, default=600.0, help="wall-clock s per epoch")
     ap.add_argument("--gui", action="store_true")
@@ -193,10 +197,12 @@ def main():
     a.noise = {c: CONDITIONS[c]["noise"] for c in CONDITIONS}
     lo_hi = a.epochs.split("-")
     epochs = range(int(lo_hi[0]), int(lo_hi[-1]) + 1)
-    pool = os.path.join(FLEET, "results", "final" if a.final else "", "deadline_probs.csv")
-    seed0 = FINAL_SEED if a.final else DEV_SEED
+    pool = os.path.join(FLEET, "results", "final" if (a.final or a.stress) else "", "deadline_probs.csv")
+    seed0 = STRESS_SEED if a.stress else (FINAL_SEED if a.final else DEV_SEED)
     world = ensure_world()
     os.makedirs(a.out, exist_ok=True)
+    json.dump(dict(accuracy=a.accuracy, noise_scale=a.noise_scale, crossing_only=a.stress, seed0=seed0),
+              open(os.path.join(a.out, "config.json"), "w"))
     res_csv = os.path.join(a.out, "results.csv")
     cols = ["epoch", "condition", "method", "N", "robot", "scenario", "family", "intent", "shift_steps",
             "robot_delay", "outcome", "duration", "min_dist", "collision", "n_asks", "stopped_time",
@@ -219,7 +225,7 @@ def main():
             w.writeheader()
         for e in epochs:
             for cond in a.conditions:
-                labels, shifts = build_epoch(pool, cond, a.N, seed0 + e)
+                labels, shifts = build_epoch(pool, cond, a.N, seed0 + e, crossing_only=a.stress)
                 delays = start_delays(shifts)
                 ep_tag = f"e{e:03d}_{cond}"
                 labels_file = os.path.join(a.out, f"{ep_tag}_labels.json")

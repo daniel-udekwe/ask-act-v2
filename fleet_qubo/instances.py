@@ -44,6 +44,8 @@ class Instance:
     tau_a: float = 1.5                 # time cost of asking
     kappa: float = 0.5                 # operator cost per question
     alpha: float = 1.0                 # answer accuracy
+    ask_model: str = "collision_only"  # "collision_only" (pre-registered) or "symmetric" (post hoc):
+                                       # symmetric also charges a wrong "crossing" answer one unnecessary stop
     Ec: dict = field(default_factory=dict)   # (i, j) -> w_ij, congestion when both halt
     En: dict = field(default_factory=dict)   # (i, j) -> v_ij, conflict when both go
     q: float = 0.0                     # operator queue: cost per pair of robots that both ask
@@ -59,6 +61,8 @@ class Instance:
         go = self.C * p
         stop = self.tau_s * (1.0 - p)
         ask = self.tau_a + self.kappa + self.C * p * (1.0 - self.alpha)
+        if self.ask_model == "symmetric":
+            ask = ask + self.tau_s * (1.0 - p) * (1.0 - self.alpha)
         return np.stack([go, stop, ask], axis=1)
 
 

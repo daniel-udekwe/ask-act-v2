@@ -58,14 +58,16 @@ def main():
     from fleet_qubo.fleet_sim import run_fleet, make_policy_class, DT
     from fleet_qubo.instances import Instance, true_cost
     from fleet_qubo.classical import exhaustive
-    from epochs import band
+    from epochs import method_band
     from run_fleet_gazebo import KAPPA, Q
 
     FleetPolicy = make_policy_class(aoa_policy.AskOrActPolicy)
     env = dict(build_trajectory=ped_traj.build_trajectory, pose_at=ped_traj.pose_at,
                ROBOT=gs.ROBOT, COLLISION_DIST=sp.COLLISION_DIST)
     model_file = os.path.join(AOA, "predictor", "intent_model.pkl")
-    lo, hi = band(KAPPA)
+    cfg_path = os.path.join(a.runs, "config.json")
+    cfg = json.load(open(cfg_path)) if os.path.exists(cfg_path) else {}
+    acc, nscale = cfg.get("accuracy", 1.0), cfg.get("noise_scale", 1.0)
 
     def solve(ps, idx):
         inst = Instance(p=np.array(ps), B=len(ps), q=Q, C=100.0, tau_s=10.0, tau_a=1.5, kappa=KAPPA)
@@ -98,9 +100,10 @@ def main():
         shifts = json.load(open(os.path.join(a.runs, f"{tag}_timing.json")))["shifts"]
         model, cal = aoa_policy.load_predictor(model_file, "mlp", "isotonic_dw", cond)
         mode = "joint" if m == "joint" else "independent"
+        lo, hi = method_band(m, KAPPA)
         pols = [FleetPolicy(model, cal, mode=mode, true_intent=l["intent"], p_low=lo, p_high=hi) for l in labels]
-        off, _, _ = run_fleet(labels, pols, gs.CONDITIONS[cond]["noise"], shifts, env,
-                              joint=solve if mode == "joint" else None)
+        off, _, _ = run_fleet(labels, pols, gs.CONDITIONS[cond]["noise"] * nscale, shifts, env,
+                              joint=solve if mode == "joint" else None, answer_accuracy=acc)
         for r in grp.itertuples():
             o, lab = off[r.robot], labels[r.robot]
             free = lab["robot_delay"] + (gs.ROBOT["start"][0] - gs.ROBOT["goal"][0] - 0.15) / gs.ROBOT["speed"]
@@ -123,6 +126,18 @@ def main():
     c["ask_agree"] = c.gz_asks == c.sim_asks
     c["act_agree"] = c.gz_action == c.sim_action
     c["delay_diff"] = c.gz_delay - c.sim_delay
+    if cfg.get("crossing_only"):                       # near-collision stress validation (post hoc)
+        print("\nStress validation: collision outcomes, Gazebo (rows) against offline (columns), per method")
+        for m_, x in c.groupby("method"):
+            tab = pd.crosstab(x.gz_collision, x.sim_collision).reindex(index=[False, True], columns=[False, True], fill_value=0)
+            po = (x.gz_collision == x.sim_collision).mean()
+            pe = x.gz_collision.mean() * x.sim_collision.mean() + (1 - x.gz_collision.mean()) * (1 - x.sim_collision.mean())
+            kap = (po - pe) / (1 - pe) if pe < 1 else float("nan")
+            md = (x.gz_min_dist - x.sim_min_dist).abs()
+            print(f"  {m_}: n={len(x)}, collisions gz {int(x.gz_collision.sum())} / offline {int(x.sim_collision.sum())}, "
+                  f"agreement {po:.3f}, Cohen's kappa {kap:.2f}; |min-distance difference| median {md.median():.3f} m, "
+                  f"90th pct {md.quantile(0.9):.3f} m")
+            print("   " + tab.to_string().replace("\n", "\n   "))
     t = c.groupby(["condition", "method"]).agg(
         robot_runs=("robot", "size"), collision_agreement=("col_agree", "mean"),
         question_agreement=("ask_agree", "mean"), action_agreement=("act_agree", "mean"),

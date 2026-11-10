@@ -155,7 +155,7 @@ def make_policy_class(AskOrActPolicy):
 
 
 def run_fleet(labels, policies, noise, shifts, aoa, joint=None, service=1.5,
-              window=1.5, answer_accuracy=1.0):
+              window=1.5, answer_accuracy=1.0, answer_seed=None):
     """Simulate N robots in lockstep.
 
     labels, policies : one Ask or Act scenario label and policy per robot
@@ -163,6 +163,10 @@ def run_fleet(labels, policies, noise, shifts, aoa, joint=None, service=1.5,
     aoa              : dict with build_trajectory, pose_at, ROBOT, COLLISION_DIST
     joint            : callable(list of p, list of robot indices) -> list of actions,
                        or None for independent policies
+    answer_seed      : None (default, as pre-registered): each scenario has one fixed answer
+                       stream, so a scenario reused in several epochs gets the same answers.
+                       Otherwise answers are drawn per question from a stream keyed on
+                       (answer_seed, scenario), independent across epochs (post-hoc analysis).
     Returns (per-robot result dicts, list of halted global-step sets).
     """
     build_trajectory, pose_at = aoa["build_trajectory"], aoa["pose_at"]
@@ -176,7 +180,8 @@ def run_fleet(labels, policies, noise, shifts, aoa, joint=None, service=1.5,
         traj = build_trajectory(lab["start"], lab["plan"], lab["human_speed"])
         R.append(dict(lab=lab, pol=pol, c=int(c), traj=traj, times=[s[0] for s in traj],
                       rng_obs=random.Random(f"obs-{lab['id']}"),
-                      rng_ans=random.Random(f"answers-{lab['id']}"),
+                      rng_ans=random.Random(f"answers-{lab['id']}" if answer_seed is None
+                                            else f"answers-{answer_seed}-{lab['id']}"),
                       rx=x0, pending=[], stopped=0.0, min_d=float("inf"),
                       outcome="timed out", t=0.0, done=False, halted=set()))
     busy = -10 ** 9                          # operator busy until (global step)
