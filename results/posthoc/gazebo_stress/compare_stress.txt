@@ -1,0 +1,39 @@
+Infrastructure failures excluded: 0 epoch groups (0 robot-runs): []
+
+Stress validation: collision outcomes, Gazebo (rows) against offline (columns), per method
+  always_go: n=60, collisions gz 59 / offline 60, agreement 0.983, Cohen's kappa 0.00; |min-distance difference| median 0.199 m, 90th pct 0.293 m
+   sim_collision  False  True
+   gz_collision              
+   False              0     1
+   True               0    59
+  joint: n=60, collisions gz 4 / offline 2, agreement 0.967, Cohen's kappa 0.65; |min-distance difference| median 0.020 m, 90th pct 0.070 m
+   sim_collision  False  True
+   gz_collision              
+   False             56     0
+   True               2     2
+  risky: n=60, collisions gz 10 / offline 14, agreement 0.900, Cohen's kappa 0.69; |min-distance difference| median 0.027 m, 90th pct 0.059 m
+   sim_collision  False  True
+   gz_collision              
+   False             45     5
+   True               1     9
+                     robot_runs  collision_agreement  question_agreement  action_agreement  gz_collisions  sim_collisions  delay_diff_mean  delay_diff_sd
+condition method                                                                                                                                         
+noisy     always_go        60.0                0.983               1.000             1.000           59.0            60.0           18.281         11.297
+          joint            60.0                0.967               0.883             0.883            4.0             2.0            0.334          1.635
+          risky            60.0                0.900               1.000             1.000           10.0            14.0            1.446          4.447
+all       all             180.0                0.950               0.961             0.883           73.0            76.0            6.687         10.829
+
+Probability at the deadline, Gazebo vs offline (163 robot-runs with both):
+  |difference| median 0.029, 90th percentile 0.164, max 0.530; within 0.05: 65.0%
+  noisy: median 0.029, 90th percentile 0.164, within 0.05: 65.0%
+  joint mode: actions agree 88.3% overall; 89.7% when |dp| <= 0.05, 85.7% when |dp| > 0.05
+  epochs where every robot's p is within 0.05: 6.7%; of those, all actions agree in 100.0%
+
+Joint epochs: extra cost of the Gazebo assignment under the offline probabilities: median 0.00, max 0.56; within one question's cost (3): 100.0% of 15 epochs
+
+Frozen criteria:
+  [MET] collision outcome agrees >= 95%
+  [MET] independent questions agree >= 90%
+  [MET] joint epochs within one question's cost >= 90%
+  [NOT MET] |mean delay difference| <= 0.5 s per condition and method
+Criteria NOT MET
