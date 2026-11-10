@@ -115,7 +115,7 @@ The contributions are as follows.
 \item A closed-loop evaluation, following an analysis plan frozen before any final run, of what the joint solver buys over per-robot rules that ask equally often. This includes a pre-specified hypothesis that was not supported, and an explanation of why.
 \item A pre-specified QAOA benchmark on these instances, in noiseless simulation (8 to 16 qubits) and on the 156-qubit \textit{ibm\_kingston} processor (8 and 12 qubits), with an exact classical reference for every instance.
 \item A validation of the closed-loop simulator against Gazebo with several TurtleBot3 robots, using agreement criteria fixed in advance.
-\item Post-hoc analyses, clearly separated from the confirmatory ones, of how much the safety results can support, of operator errors in both directions with answers drawn per question, of a risk-capped formulation, of the sensitivity to answer accuracy and to the collision cost, and of QAOA against stronger classical and restricted-uniform baselines.
+\item Post-hoc analyses, clearly separated from the confirmatory ones, of how much the safety results can support, of operator errors in both directions with answers drawn per question, of a risk-capped formulation, of offline--Gazebo agreement in near-collision encounters, of the sensitivity to answer accuracy and to the collision cost, and of QAOA against stronger classical and restricted-uniform baselines.
 \end{enumerate}
 
 Section~\ref{sec:related} reviews related work. Section~\ref{sec:method} describes the setting, the formulation, the solvers, the simulator and the analysis plan. Section~\ref{sec:results} reports the results, Section~\ref{sec:discussion} discusses them and their limitations, and Section~\ref{sec:conclusion} concludes.
@@ -245,12 +245,12 @@ which moves the asking band of Eq.~\eqref{eq:band} to
 \label{tab:confusion}
 \begin{tabular*}{\columnwidth}{@{\extracolsep{\fill}}lll}
 \toprule
- & Answer ``crossing'' & Answer ``not crossing'' \\
+ Pedestrian & Answer ``crossing'' & Answer ``not crossing'' \\
 \midrule
-Pedestrian crosses & $\alpha$: robot yields & $1-\alpha$: robot goes; \\
- & (no further cost) & collision risk, cost $C$ \\
-Does not cross & $1-\alpha$: robot yields & $\alpha$: robot goes \\
- & unnecessarily, cost $\tau_s$ & (no further cost) \\
+Crosses & $\alpha$: robot yields & $1-\alpha$: robot goes; \\
+ & (no further cost) & risk, cost $C$ \\
+Does not & $1-\alpha$: robot yields & $\alpha$: robot goes \\
+cross & needlessly, cost $\tau_s$ & (no further cost) \\
 \bottomrule
 \end{tabular*}
 \end{table}
@@ -657,6 +657,25 @@ $N$ & Method & Quest./epoch & Delay (s) & Stopped (s) & Collisions & (\%) & Epoc
 
 \paragraph{Where the delay saving comes from.} The joint solver and the per-robot rule of H1 and H2 differ in two ways. The joint solver decides for the whole epoch, and in its execution mode every robot keeps observing until its decision deadline. The per-robot rule, like the single-robot Ask or Act policy, commits as soon as its probability leaves the asking band, so a robot whose probability rises early stops early, farther from the crossing. The all-stop policy above already suggests that the second difference matters. To separate the two, we ran the joint execution mode without the queue term ($q = 0$) on the same 1{,}000 final epochs. The problem then separates, and each robot applies the per-robot cost rule, but at its deadline; sweeping $\kappa$ traces the grey curves in Fig.~\ref{fig:pareto}. Interpolated to the joint solver's question rate, this deadline rule had a mean delay of 3.87 and \SI{3.99}{s} ($N = 6$ and 8), against 3.80 and \SI{3.93}{s} for the joint solver: coordinating the questions saved 0.068 and \SI{0.052}{s} per robot (paired bootstrap 95\% intervals [0.045, 0.090] and [0.034, 0.070]), whereas deciding at the deadline instead of early saved 2.89 and \SI{3.02}{s}. Neither variant collided. In this setting, therefore, the large H1 and H2 effects measure the value of deferring the decision to the deadline, and the value of joint optimization proper is small, about 2\% of the delay.
 
+
+\paragraph{Gazebo near-collision validation.} The Gazebo epochs of Section~\ref{sec:res-gazebo} contained no collision, so they could not show that the offline simulator also predicts collisions. We therefore ran a stress set on the same Gazebo set-up: 15 epochs of four robots, all meeting crossing pedestrians (final pool, new seeds), tracking noise 1.5 times the noisy level, operator answers correct with probability 0.9, and three policies chosen to produce close encounters. The always-go policy never stops or asks; the risky policy goes whenever $p_i < 0.5$ and never asks; the third is the joint solver of H1, whose cost model assumes correct answers. Each Gazebo run was replayed offline with the same scenarios, timing and noise seeds (Table~\ref{tab:stress}). All 180 robot runs were valid. Collision outcomes agreed in 98\% of always-go runs, 97\% of joint runs and 90\% of risky runs (Cohen's $\kappa$ 0.65 for the joint solver and 0.69 for the risky policy). The disagreements were concentrated at the threshold: every risky and always-go disagreement had an offline minimum distance within \SI{0.025}{m} of the \SI{0.4}{m} collision distance, and agreement was 61\% for the 18 runs within \SI{0.05}{m} of it, against 99\% for the others. The two joint-solver disagreements were collisions in Gazebo only, both for robots that had asked about a late-turning pedestrian; in Gazebo the robot moved on about \SI{1.2}{s} earlier than offline and passed at 0.37 and \SI{0.39}{m} instead of \SI{0.56}{m}. Minimum distances correlated at 0.93 overall, with a median absolute difference of 0.02--\SI{0.03}{m} for the joint and risky policies. For the always-go policy the difference was larger (median \SI{0.20}{m}) because simulated bodies cannot pass through each other in Gazebo, where 26 of its 60 runs ended in a time-out after contact; the same effect makes delays after a collision incomparable. Among runs without a collision, the mean delay differed by 0.15 and \SI{0.13}{s} for the joint and risky policies. The offline simulator therefore predicts collisions as well as it predicts decisions, apart from encounters that pass within a few centimetres of the threshold.
+
+\begin{table}
+\centering
+\caption{Gazebo near-collision validation (post hoc): 15 epochs, $N = 4$, crossing pedestrians only, noise $\times 1.5$, $\alpha = 0.9$; 60 robot runs per policy. Agreement and Cohen's $\kappa$ refer to the collision outcome; Risky: goes whenever $p_i < 0.5$. $|\Delta d|$: median absolute difference of the minimum robot--pedestrian distance (m); Near: disagreements whose offline minimum distance was within \SI{0.05}{m} of the collision distance.}
+\label{tab:stress}
+\begin{tabular*}{\columnwidth}{@{\extracolsep{\fill}}lrrrrrr}
+\toprule
+ & \multicolumn{2}{c}{Collisions} & & & & \\
+\cmidrule(lr){2-3}
+Policy & Gz & Off. & Agree & $\kappa$ & Near & $|\Delta d|$ \\
+\midrule
+Always go & 59 & 60 & 0.98 & -- & 1/1 & 0.20 \\
+Risky & 10 & 14 & 0.90 & 0.69 & 6/6 & 0.027 \\
+Joint solver & 4 & 2 & 0.97 & 0.65 & 0/2 & 0.020 \\
+\bottomrule
+\end{tabular*}
+\end{table}
 
 \paragraph{Stronger baselines for QAOA.} Table~\ref{tab:qaoabase} compares the probability that each method returns the optimum on the 60 final benchmark instances. Restricting uniform sampling to feasible states or to the $2^N$ halt states already gives most of QAOA's lift: at depth 3, QAOA put 0.062, 0.015 and 0.0033 on the optimum at $N = 4$, 6 and 8, close to the 0.0625, 0.0156 and 0.0039 of uniform sampling over halt states. Conditional on a halt state, the optimum received 0.99, 0.98 and 0.96 times its uniform share (Fig.~\ref{fig:qaoahalt}). Classical methods do much better. A greedy allocation solves the queue formulation exactly: with the queue term, each robot's choice reduces to asking or taking its cheaper non-asking action, the gain from asking falls by $q$ with each additional question, so sorting the robots by their gain from asking and adding questions while the marginal gain stays positive gives the optimum, in $O(N\log N)$ time; it matched the exhaustive solver on all 60 instances and on 2{,}000 random ones. Simulated annealing with one restart of 1{,}000 sweeps found the optimum in 11\%, 3\% and 0.7\% of runs, and with 32 restarts it solved all instances at $N = 4$ but only 65\% at $N = 6$ and 15\% at $N = 8$, probably because the near-degenerate halt states are separated from each other by the exclusion penalty.
 
