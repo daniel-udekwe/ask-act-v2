@@ -40,8 +40,8 @@ acol = {"go": AQUA, "ask": BLUE, "yield": ORANGE}
 for y, k, p, act in lanes:
     ax.add_patch(Rectangle((0.15, y - 0.12), 4.3, 0.24, fc="#e4e4e0", ec="none", zorder=0))
     ax.plot([0.15, 4.45], [y, y], color="white", lw=0.8, ls=(0, (4, 3)), zorder=0.5)
-    img(ax, ROBOT, 0.85, y - 0.1, 0.95)
-    img(ax, WORKER, 3.25, y - 0.1, 1.15)
+    img(ax, ROBOT, 0.85, y - 0.1, 0.72)
+    img(ax, WORKER, 3.25, y - 0.1, 1.25)
     ax.annotate("", xy=(3.25, y - 0.05), xytext=(3.9, y + 0.55),
                 arrowprops=dict(arrowstyle="-|>", color=GRAY, lw=0.8, ls=(0, (2, 1.5)), mutation_scale=7), zorder=2)
     ax.text(0.2, y + 0.98, f"$R_{{{k}}}$", fontsize=8, color=INK, va="center")
