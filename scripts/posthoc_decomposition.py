@@ -87,7 +87,7 @@ def load():
     import matplotlib; matplotlib.use("Agg"); import matplotlib.pyplot as plt
     plt.rcParams.update({"font.family": "serif", "font.size": 8, "pdf.fonttype": 42})
     INK, cols = "#2b2b29", {1.5: "#2a78d6", 3.0: "#eb6834", 4.5: "#1baf7a"}
-    fig, axs = plt.subplots(1, 3, figsize=(7.2, 2.4))
+    fig, axs = plt.subplots(1, 3, figsize=(7.2, 2.6))
     for ta, g in out.groupby("tau_a"):
         g = g.sort_values("N"); c = cols[ta]; lab = rf"$\tau_a$ = {ta:g} s"
         axs[0].errorbar(g.N, g.save_deadline, yerr=[g.save_deadline - g.save_deadline_lo, g.save_deadline_hi - g.save_deadline],
@@ -97,9 +97,9 @@ def load():
         axs[2].plot(g.N, g.q_joint, color=c, marker="o", ms=3.5, lw=1.2)
         axs[2].plot(g.N, g.fb_deadline, color=c, marker="^", ms=3.5, lw=1.0, ls="--")
     axs[0].axhline(0, color="#8a8a85", lw=0.7)
-    axs[0].set_title("(a) Coordination: deadline rule $-$ joint", fontsize=7.8, color=INK)
-    axs[1].set_title("(b) Timing + coordination: early rule $-$ joint", fontsize=7.8, color=INK)
-    axs[2].set_title("(c) Questions (o) and unanswered (^) per epoch", fontsize=7.8, color=INK)
+    axs[0].set_title("(a) Coordination\n(deadline rule $-$ joint solver)", fontsize=7.8, color=INK)
+    axs[1].set_title("(b) Timing and coordination\n(per-robot rule $-$ joint solver)", fontsize=7.8, color=INK)
+    axs[2].set_title("(c) Questions per epoch (joint, solid)\nunanswered (deadline rule, dashed)", fontsize=7.8, color=INK)
     axs[0].set_ylabel("delay saved per robot (s)"); axs[2].set_ylabel("per epoch")
     for ax in axs:
         ax.set_xticks([6, 8, 12]); ax.set_xlabel("robots per epoch $N$"); ax.grid(alpha=0.25, lw=0.5)
