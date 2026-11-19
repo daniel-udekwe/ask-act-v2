@@ -14,6 +14,10 @@ Stages (all noisy/nominal tracking, decision-aware calibration):
           problem separates, so each robot applies the per-robot cost rule, but at its deadline and
           inside the joint execution mode. This separates the gain of deciding at the deadline from
           the gain of coordinating questions (results/posthoc/deadline.csv.gz)
+  load    final seeds, e < 200, noisy, perfect answers: operator service time tau_a in {1.5, 3, 4.5} s
+          (queue weight q = tau_a) x fleet size N in {6, 8, 12}; joint solver (greedy, exact), the
+          per-robot rule at the deadline (q = 0) and the early-committing per-robot rule, kappa swept
+          (results/posthoc/load.csv.gz)
   grid    final seeds, e < 300, N = 6, noisy: answer accuracy x collision-to-stop cost ratio,
           joint solver (kappa = 1.5, q = 1.5) and per-robot rule (kappa = 1.5), symmetric model,
           per-question answers (results/posthoc/grid.csv.gz)
@@ -45,9 +49,9 @@ def table(n):
     return _TABLES[n]
 
 
-def unary(p, C, kappa, alpha, model):
+def unary(p, C, kappa, alpha, model, tau_a=TAU_A):
     p = np.asarray(p, float)
-    ask = TAU_A + kappa + C * p * (1 - alpha)
+    ask = tau_a + kappa + C * p * (1 - alpha)
     if model == "symmetric":
         ask = ask + TAU_S * (1 - p) * (1 - alpha)
     return np.stack([C * p, TAU_S * (1 - p), ask], axis=1)
@@ -68,8 +72,22 @@ def solver(C, kappa, q, alpha, model, eps=None):
     return solve
 
 
-def band(C, kappa, alpha, model):
-    ask, gs = TAU_A + kappa, TAU_S / (C + TAU_S)
+def greedy(C, kappa, q, tau_a):
+    """Exact minimizer of the queue QUBO (alpha = 1): ask the k robots with the largest gains."""
+    def solve(ps, idx):
+        U = unary(ps, C, kappa, 1.0, "collision_only", tau_a)
+        base = U[:, :2].argmin(axis=1); g = U[:, :2].min(axis=1) - U[:, 2]
+        order = np.argsort(-g); best, k_best, tot = 0.0, 0, 0.0
+        for k, i in enumerate(order):
+            tot += g[i] - q * k
+            if tot > best: best, k_best = tot, k + 1
+        a = base.copy(); a[order[:k_best]] = 2
+        return list(a)
+    return solve
+
+
+def band(C, kappa, alpha, model, tau_a=TAU_A):
+    ask, gs = tau_a + kappa, TAU_S / (C + TAU_S)
     if model == "symmetric":
         lo = (ask + (1 - alpha) * TAU_S) / (alpha * C + (1 - alpha) * TAU_S)
         hi = (alpha * TAU_S - ask) / (alpha * TAU_S + (1 - alpha) * C)
@@ -78,7 +96,10 @@ def band(C, kappa, alpha, model):
     return (lo, hi) if lo < hi else (gs, gs)
 
 
-def methods(stage, N, kstar_sym=None, alpha=0.9, C=100.0):
+LOAD_K = (0.0, 0.5, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 8.0)
+
+
+def methods(stage, N, kstar_sym=None, alpha=0.9, C=100.0, cfg_ta=TAU_A):
     if stage == "alpha":
         m = [("joint_a_pq", "joint", dict(C=C, kappa=KAPPA, q=Q, alpha=alpha, model="collision_only")),
              ("rule_a_pq", "rule", dict(C=C, kappa=F.KAPPA_STAR_A[N], alpha=alpha, model="collision_only")),
@@ -94,6 +115,11 @@ def methods(stage, N, kstar_sym=None, alpha=0.9, C=100.0):
         return [("joint", "joint", dict(C=C, kappa=KAPPA, q=Q, alpha=1.0, model="collision_only"))] + \
                [(f"deadline_k{k:g}", "joint", dict(C=C, kappa=k, q=0.0, alpha=1.0, model="collision_only"))
                 for k in (0.5, 1.0, 1.5, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0)]
+    if stage == "load":
+        ta = cfg_ta
+        return [("joint", "greedy", dict(C=C, kappa=KAPPA, q=ta, alpha=1.0, tau_a=ta))] + \
+               [(f"deadline_k{k:g}", "greedy", dict(C=C, kappa=k, q=0.0, alpha=1.0, tau_a=ta)) for k in LOAD_K] + \
+               [(f"rule_k{k:g}", "rule", dict(C=C, kappa=k, alpha=1.0, model="collision_only", tau_a=ta)) for k in LOAD_K]
     if stage == "match":
         return [("joint_sym", "joint", dict(C=C, kappa=KAPPA, q=Q, alpha=alpha, model="symmetric"))] + \
                [(f"rule_sym_k{k:g}", "rule", dict(C=C, kappa=k, alpha=alpha, model="symmetric"))
@@ -116,18 +142,23 @@ def task(args):
         u = rng.uniform(0, 1.0, size=N)
         labs = [gs.build("cafe", r.family, r.intent, int(r.seed), cond) for r in pick.itertuples()]
         shifts = [int(round((ui - td) / DT)) for ui, td in zip(u, pick.t_deadline)]
-        for name, kind, kw in methods(stage, N, cfg.get("kstar"), cfg.get("alpha", 0.9), cfg.get("C", 100.0)):
-            if kind == "joint":
+        ta = cfg.get("tau_a", TAU_A)
+        for name, kind, kw in methods(stage, N, cfg.get("kstar"), cfg.get("alpha", 0.9), cfg.get("C", 100.0), ta):
+            if kind == "greedy":
+                pols = [FP(model, calib, mode="joint", true_intent=l["intent"]) for l in labs]
+                out, _, _ = run_fleet(labs, pols, noise, shifts, env, service=ta, answer_accuracy=1.0, answer_seed=seed0 + e,
+                                      joint=greedy(kw["C"], kw["kappa"], kw["q"], ta))
+            elif kind == "joint":
                 pols = [FP(model, calib, mode="joint", true_intent=l["intent"]) for l in labs]
                 out, _, _ = run_fleet(labs, pols, noise, shifts, env, answer_accuracy=kw["alpha"], answer_seed=seed0 + e,
                                       joint=solver(kw["C"], kw["kappa"], kw["q"], kw["alpha"], kw["model"], kw.get("eps")))
             else:
-                lo, hi = band(kw["C"], kw["kappa"], kw["alpha"], kw["model"])
+                lo, hi = band(kw["C"], kw["kappa"], kw["alpha"], kw["model"], ta)
                 pols = [FP(model, calib, mode="independent", true_intent=l["intent"], p_low=lo, p_high=hi) for l in labs]
-                out, _, _ = run_fleet(labs, pols, noise, shifts, env, answer_accuracy=kw["alpha"], answer_seed=seed0 + e)
+                out, _, _ = run_fleet(labs, pols, noise, shifts, env, service=ta, answer_accuracy=kw["alpha"], answer_seed=seed0 + e)
             for i, (o, l) in enumerate(zip(out, labs)):
                 rows.append(dict(stage=stage, N=N, condition=cond, epoch=e, robot=i, scenario=l["id"], method=name,
-                                 alpha=kw["alpha"], C=kw["C"], crossing=int(l["intent"] == "crossing"),
+                                 alpha=kw["alpha"], C=kw["C"], tau_a=ta, crossing=int(l["intent"] == "crossing"),
                                  collision=int(o["collision"]), n_asks=o["n_asks"], delay=o["delay"],
                                  fallback=int(o["fallback"]), stopped_time=o["stopped_time"], action=o["action"]))
     return rows
@@ -137,8 +168,9 @@ def run(jobs, out, workers):
     rows = []
     if os.path.exists(out):
         old = pd.read_csv(out); rows = old.to_dict("records")
-        done = set(zip(old.N, old.condition, old.alpha, old.C, old.epoch))
-        jobs = [j for j in jobs if not all((j[3], j[1], j[6].get("alpha", 0.9), j[6].get("C", 100.0), e) in done for e in j[2])]
+        ta = old.tau_a if "tau_a" in old else pd.Series(TAU_A, index=old.index)
+        done = set(zip(old.N, old.condition, old.alpha, old.C, ta, old.epoch))
+        jobs = [j for j in jobs if not all((j[3], j[1], j[6].get("alpha", 0.9), j[6].get("C", 100.0), j[6].get("tau_a", TAU_A), e) in done for e in j[2])]
     print(f"{len(jobs)} jobs -> {out}", flush=True)
     t0 = time.time()
     with Pool(workers) as p:
@@ -150,7 +182,7 @@ def run(jobs, out, workers):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("stage", choices=["match", "alpha", "grid", "deadline"])
+    ap.add_argument("stage", choices=["match", "alpha", "grid", "deadline", "load"])
     ap.add_argument("--workers", type=int, default=2)
     a = ap.parse_args()
     os.makedirs(OUT, exist_ok=True)
@@ -174,8 +206,12 @@ def main():
         jobs = [("alpha", c, ep, N, fin_pool, 8_100_000, {"kstar": ks}) for N in (6, 8) for c in ("noisy", "nominal") for ep in chunks(1000, 50)]
         run(jobs, os.path.join(OUT, "alpha.csv.gz"), a.workers)
     elif a.stage == "deadline":
-        jobs = [("deadline", "noisy", ep, N, fin_pool, 8_100_000, {"alpha": 1.0}) for N in (6, 8) for ep in chunks(1000, 50)]
+        jobs = [("deadline", c, ep, N, fin_pool, 8_100_000, {"alpha": 1.0}) for c in ("noisy", "nominal") for N in (6, 8) for ep in chunks(1000, 50)]
         run(jobs, os.path.join(OUT, "deadline.csv.gz"), a.workers)
+    elif a.stage == "load":
+        jobs = [("load", "noisy", ep, N, fin_pool, 8_100_000, {"alpha": 1.0, "tau_a": ta})
+                for ta in (1.5, 3.0, 4.5) for N in (6, 8, 12) for ep in chunks(200, 50)]
+        run(jobs, os.path.join(OUT, "load.csv.gz"), a.workers)
     else:
         jobs = [("grid", "noisy", ep, 6, fin_pool, 8_100_000, {"alpha": al, "C": TAU_S * r})
                 for al in (0.8, 0.85, 0.9, 0.95, 1.0) for r in (2.5, 5.0, 10.0, 20.0, 50.0) for ep in chunks(300, 150)]
