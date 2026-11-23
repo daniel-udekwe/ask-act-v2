@@ -64,6 +64,18 @@ if __name__ == "__main__":
     if os.path.exists(a):
         out += summarise(pd.read_csv(a), [("joint_a_pq", "rule_a_pq"), ("joint_sym", "rule_sym_matched")] +
                          [(f"joint_sym_eps{x:g}", "rule_sym_matched") for x in (0.005, 0.01, 0.02)], "post hoc (per-question answers)")
+    v = os.path.join(ROOT, "results", "posthoc", "verify.csv.gz")
+    if os.path.exists(v):
+        cols = ["N", "condition", "epoch", "robot", "scenario", "method", "crossing", "collision"]
+        V = pd.read_csv(v)[cols]
+        A = pd.read_csv(a)[cols]
+        K = pd.concat([c[c.method == "rule_a_matched"][cols],
+                       e[e.method == "rule_a_matched"][cols]])
+        out += summarise(pd.concat([V, K]), [("joint_a_keyed_v", "rule_a_matched")], "post hoc verification (per-scenario answers)")
+        out += summarise(pd.concat([V, A]), [("joint_a_pq_v", "rule_a_pq"), ("joint_sym_v", "rule_sym_matched")],
+                         "post hoc verification (per-question answers)")
+        out += summarise(V, [(m, "rule_sym_d") for m in ("joint_sym_d", "joint_sym_d_v", "joint_dsym", "joint_dsym_v")],
+                         "post hoc difficulty-dependent accuracy")
     t = pd.DataFrame(out)
     os.makedirs(os.path.join(ROOT, "results", "posthoc"), exist_ok=True)
     t.to_csv(os.path.join(ROOT, "results", "posthoc", "safety_stats.csv"), index=False)

@@ -66,9 +66,8 @@ def decomposition():
     print(out.round(3).to_string())
 
 
-def load():
-    rng = np.random.default_rng(11)
-    d = pd.read_csv(os.path.join(PH, "load.csv.gz"))
+def load_summary(src, dst, rng):
+    d = pd.read_csv(os.path.join(PH, src))
     rows = []
     for (ta, N), x in d.groupby(["tau_a", "N"]):
         ep = epoch_table(x)
@@ -82,20 +81,36 @@ def load():
             D, F = z; m, lo, hi = boot(D - J.d, rng)
             r.update({f"delay_{fam}": D.mean(), f"fb_{fam}": F.mean(), f"save_{fam}": m, f"save_{fam}_lo": lo, f"save_{fam}_hi": hi})
         rows.append(r)
-    out = pd.DataFrame(rows); out.to_csv(os.path.join(PH, "load_summary.csv"), index=False)
-    print(out.round(3).to_string())
+    out = pd.DataFrame(rows); out.to_csv(os.path.join(PH, dst), index=False)
+    print(src); print(out.round(3).to_string())
+    return out
+
+
+def load():
+    """Fig.: timeout scaled with the service time (T = 3 tau_a, joint limited to 3 questions) when
+    results/posthoc/load_timeout3.csv.gz exists; the fixed 5 s timeout is shown dashed in panel (a)."""
+    rng = np.random.default_rng(11)
+    fixed = load_summary("load.csv.gz", "load_summary.csv", rng)
+    scaled = load_summary("load_timeout3.csv.gz", "load_timeout3_summary.csv", rng) \
+        if os.path.exists(os.path.join(PH, "load_timeout3.csv.gz")) else None
+    main = scaled if scaled is not None else fixed
     import matplotlib; matplotlib.use("Agg"); import matplotlib.pyplot as plt
     plt.rcParams.update({"font.family": "serif", "font.size": 8, "pdf.fonttype": 42})
     INK, cols = "#2b2b29", {1.5: "#2a78d6", 3.0: "#eb6834", 4.5: "#1baf7a"}
     fig, axs = plt.subplots(1, 3, figsize=(7.2, 2.6))
-    for ta, g in out.groupby("tau_a"):
+    for ta, g in main.groupby("tau_a"):
         g = g.sort_values("N"); c = cols[ta]; lab = rf"$\tau_a$ = {ta:g} s"
         axs[0].errorbar(g.N, g.save_deadline, yerr=[g.save_deadline - g.save_deadline_lo, g.save_deadline_hi - g.save_deadline],
                         color=c, marker="o", ms=3.5, lw=1.2, capsize=2, label=lab)
+        if scaled is not None:
+            f = fixed[fixed.tau_a == ta].sort_values("N")
+            axs[0].plot(f.N, f.save_deadline, color=c, lw=0.9, ls=":", alpha=0.8)
         axs[1].errorbar(g.N, g.save_rule, yerr=[g.save_rule - g.save_rule_lo, g.save_rule_hi - g.save_rule],
                         color=c, marker="o", ms=3.5, lw=1.2, capsize=2)
         axs[2].plot(g.N, g.q_joint, color=c, marker="o", ms=3.5, lw=1.2)
         axs[2].plot(g.N, g.fb_deadline, color=c, marker="^", ms=3.5, lw=1.0, ls="--")
+    if scaled is not None:
+        axs[0].plot([], [], color=INK, lw=0.9, ls=":", label="timeout 5 s")
     axs[0].axhline(0, color="#8a8a85", lw=0.7)
     axs[0].set_title("(a) Coordination\n(deadline rule $-$ joint solver)", fontsize=7.8, color=INK)
     axs[1].set_title("(b) Timing and coordination\n(per-robot rule $-$ joint solver)", fontsize=7.8, color=INK)
@@ -103,7 +118,7 @@ def load():
     axs[0].set_ylabel("delay saved per robot (s)"); axs[2].set_ylabel("per epoch")
     for ax in axs:
         ax.set_xticks([6, 8, 12]); ax.set_xlabel("robots per epoch $N$"); ax.grid(alpha=0.25, lw=0.5)
-    axs[0].legend(fontsize=6.8, frameon=False)
+    axs[0].legend(fontsize=6.5, frameon=False)
     fig.tight_layout(w_pad=1.0); fig.savefig(os.path.join(ROOT, "paper", "figures", "load.pdf")); plt.close(fig)
 
 

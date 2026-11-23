@@ -43,8 +43,12 @@ def make_policy_class(AskOrActPolicy):
     _compute_features = _sys.modules[AskOrActPolicy.__module__].compute_features
 
     class FleetPolicy(AskOrActPolicy):
-        def __init__(self, model, calibrator, mode="independent", **kw):
+        def __init__(self, model, calibrator, mode="independent", verify=None, **kw):
             super().__init__("threshold", model, calibrator, **kw)
+            # verify: None, or callable(p at the question) -> threshold v. After a "not crossing"
+            # answer the robot keeps observing and stops if its own probability reaches v
+            # (post-hoc safeguard; joint mode only).
+            self.verify, self.ask_p = verify, {}
             self.mode = mode
             self.assigned = {}          # hid -> GO / STOP / ASK
             self.request = None         # (hid, p) when waiting for the epoch
@@ -108,6 +112,10 @@ def make_policy_class(AskOrActPolicy):
                 elif known is not None:
                     action, why = ("stop", "answer: crossing") if known == "crossing" \
                         else ("go", "answer: not crossing")
+                    if known != "crossing" and self.verify is not None:
+                        p = self.predict(hid)
+                        if p is not None and p >= self.verify(self.ask_p.get(hid, p)):
+                            action, why = "stop", "verify: probability rose"
                 else:
                     p = self.predict(hid)
                     a = self.assigned.get(hid)
@@ -124,6 +132,7 @@ def make_policy_class(AskOrActPolicy):
                     elif a == ASK:
                         if hid not in self.asked:
                             self.asked[hid] = t
+                            self.ask_p[hid] = p
                             self.asks.append(dict(t=round(t, 3), human=hid))
                             to_ask.append(hid)
                             action, why = "stop", "fleet: asked"
@@ -139,7 +148,7 @@ def make_policy_class(AskOrActPolicy):
                         action, why = (("stop", "fleet go, reflex: crossing") if p >= self.p_high
                                        else ("go", "fleet: go"))
                 if action == "stop" and why in ("answer: crossing", "fleet: yield",
-                                                "fleet go, reflex: crossing"):
+                                                "fleet go, reflex: crossing", "verify: probability rose"):
                     start = self.yield_start.setdefault(hid, t)
                     if t - start > self.yield_timeout:
                         self.yield_expired.add(hid)
@@ -224,7 +233,11 @@ def run_fleet(labels, policies, noise, shifts, aoa, joint=None, service=1.5,
             for hid in to_ask:
                 if s["rng_ans"].random() < 1.0:          # response_prob = 1, as in simulate()
                     wrong = "not_crossing" if lab["intent"] == "crossing" else "crossing"
-                    ans = lab["intent"] if s["rng_ans"].random() < answer_accuracy else wrong
+                    acc = answer_accuracy
+                    if callable(acc):            # post hoc: accuracy depends on the asked probability
+                        pa = pol.predict(hid)
+                        acc = acc(0.5 if pa is None else pa)
+                    ans = lab["intent"] if s["rng_ans"].random() < acc else wrong
                     # operator clock in integer steps; with no wait the answer time is
                     # exactly t + service, as in simulate()
                     wait = max(0, busy - g)
@@ -262,6 +275,8 @@ def run_fleet(labels, policies, noise, shifts, aoa, joint=None, service=1.5,
             outcome=s["outcome"], duration=round(s["t"], 3), delay=round(s["t"] - free_time, 3),
             min_dist=round(s["min_d"], 3), collision=s["min_d"] < COLLISION_DIST,
             n_asks=len(pol.asks), stopped_time=round(s["stopped"], 3),
+            verified=any(w == "verify: probability rose" for w in whys),
+            answer=next(iter(getattr(pol, "knowledge", {}).values()), ""),
             fallback=any("no answer" in w for w in whys),
             held_s=round(getattr(pol, "held_steps", 0) * DT, 3),
             action=getattr(pol, "assigned", {}).get(1, -1)))
