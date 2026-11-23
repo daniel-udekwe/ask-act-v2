@@ -26,3 +26,13 @@ deadline instead of early saves 2.89 and 3.02 s.
 | `load.csv.gz`, `load_summary.csv` | operator service time 1.5/3/4.5 s x N = 6/8/12, noisy, perfect answers, 200 epochs: joint (greedy, exact), deadline rule and early rule with kappa swept (`posthoc_review.py load`, `posthoc_decomposition.py load` -> `paper/figures/load.pdf`) |
 
 Coordination saving over the deadline rule: 0.03-0.07 s at tau_a = 1.5 s; 0.01-0.07 s at 3 and 4.5 s (CI includes 0 in 5 of 6 settings).
+
+## Third review (added)
+
+| File | Content |
+|---|---|
+| `verify.csv.gz` | alpha = 0.9: verification after a "not crossing" answer (threshold v = a tau_s / (a tau_s + (1-a) C)), pre-registered keyed answers and per-question answers; difficulty-dependent accuracy alpha(p) = 0.95 - 0.25 exp(-((p-0.45)/0.15)^2) with misspecified and alpha(p)-aware solvers; N = 6/8, noisy/nominal, 1,000 final epochs |
+| `load_timeout3.csv.gz`, `load_timeout3_summary.csv` | load analysis rerun with the answer timeout T = 3 tau_a and the joint solver limited to 3 questions per epoch |
+
+Verification removed every collision (incl. the pre-registered H4/H5 design: 45/47 -> 0) at < 0.1 s delay cost.
+Scaled timeout: coordination saving 0.03-0.07 s (tau_a 1.5), 0.05-0.11 s (3), 0.09-0.13 s (4.5).
