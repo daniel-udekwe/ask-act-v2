@@ -278,9 +278,34 @@ def run_fleet(labels, policies, noise, shifts, aoa, joint=None, service=1.5,
             verified=any(w == "verify: probability rose" for w in whys),
             answer=next(iter(getattr(pol, "knowledge", {}).values()), ""),
             fallback=any("no answer" in w for w in whys),
+            **_decision_point(pol),
             held_s=round(getattr(pol, "held_steps", 0) * DT, 3),
             action=getattr(pol, "assigned", {}).get(1, -1)))
     return out, [s["halted"] for s in R], epochs
+
+
+_WAIT = ("observing until the deadline", "uncertain: observing until the deadline", "not enough history",
+         "waiting for epoch")
+
+
+def _decision_point(pol):
+    """Probability and action at which a policy first acted on its pedestrian (post hoc).
+
+    Joint mode: the assigned action and the probability sent to the coordinator. Per-robot rule:
+    'ask' if it ever asked (probability at the question), otherwise its first committed action
+    ('confident: crossing' = yield, 'confident: not crossing' = go)."""
+    dec = [d for d in pol.decisions if d[2] != ""]
+    req = getattr(pol, "request", None)
+    if getattr(pol, "mode", "independent") == "joint" and req is not None:
+        a = getattr(pol, "assigned", {}).get(req[0], -1)
+        return dict(p_dec=round(float(req[1]), 4), act_dec={0: "go", 1: "yield", 2: "ask"}.get(int(a), ""))
+    asked = [d for d in dec if d[4] == "uncertain: asked"]
+    if asked:
+        return dict(p_dec=asked[0][2], act_dec="ask")
+    for d in dec:
+        if d[4] not in _WAIT:
+            return dict(p_dec=d[2], act_dec="yield" if d[3] == "stop" else "go")
+    return dict(p_dec=float("nan"), act_dec="")
 
 
 def congestion_time(halted, pairs) -> float:

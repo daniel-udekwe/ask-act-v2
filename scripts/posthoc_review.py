@@ -137,6 +137,14 @@ def methods(stage, N, kstar_sym=None, alpha=0.9, C=100.0, cfg_ta=TAU_A):
                 ("rule_sym_d", "rule", dict(C=C, kappa=kstar_sym[N], alpha=0.9, model="symmetric", acc=alpha_d)),
                 ("joint_dsym", "joint", dict(C=C, kappa=KAPPA, q=Q, alpha=alpha_d, model="symmetric", acc=alpha_d)),
                 ("joint_dsym_v", "joint", dict(C=C, kappa=KAPPA, q=Q, alpha=alpha_d, model="symmetric", acc=alpha_d, verify=V(alpha_d)))]
+    if stage == "alloc":
+        m = [("joint_a1", "joint", dict(C=C, kappa=KAPPA, q=Q, alpha=1.0, model="collision_only")),
+             ("rule_a1", "rule", dict(C=C, kappa=F.KAPPA_STAR[N], alpha=1.0, model="collision_only")),
+             ("joint_a09", "joint", dict(C=C, kappa=KAPPA, q=Q, alpha=0.9, model="collision_only")),
+             ("rule_a09", "rule", dict(C=C, kappa=F.KAPPA_STAR_A[N], alpha=0.9, model="collision_only"))]
+        m += [(f"deadline_a1_k{k:g}", "joint", dict(C=C, kappa=k, q=0.0, alpha=1.0, model="collision_only")) for k in (3.0, 3.5, 4.0, 4.5)]
+        m += [(f"deadline_a09_k{k:g}", "joint", dict(C=C, kappa=k, q=0.0, alpha=0.9, model="collision_only")) for k in (1.5, 2.0, 2.5, 3.0)]
+        return m
     if stage == "load":
         ta = cfg_ta
         return [("joint", "greedy", dict(C=C, kappa=KAPPA, q=ta, alpha=1.0, tau_a=ta))] + \
@@ -185,7 +193,7 @@ def task(args):
                 rows.append(dict(stage=stage, N=N, condition=cond, epoch=e, robot=i, scenario=l["id"], method=name,
                                  alpha=kw["alpha"] if not callable(kw["alpha"]) else -1.0, C=kw["C"], tau_a=ta,
                                  timeout=cfg.get("timeout_factor", 0) * ta or 5.0, verified=int(o.get("verified", False)),
-                                 answer=o.get("answer", ""), crossing=int(l["intent"] == "crossing"),
+                                 answer=o.get("answer", ""), p_dec=o.get("p_dec"), act_dec=o.get("act_dec", ""), crossing=int(l["intent"] == "crossing"),
                                  collision=int(o["collision"]), n_asks=o["n_asks"], delay=o["delay"],
                                  fallback=int(o["fallback"]), stopped_time=o["stopped_time"], action=o["action"]))
     return rows
@@ -210,7 +218,7 @@ def run(jobs, out, workers):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("stage", choices=["match", "alpha", "grid", "deadline", "load", "verify", "load3"])
+    ap.add_argument("stage", choices=["match", "alpha", "grid", "deadline", "load", "verify", "load3", "alloc"])
     ap.add_argument("--workers", type=int, default=2)
     a = ap.parse_args()
     os.makedirs(OUT, exist_ok=True)
@@ -240,6 +248,9 @@ def main():
         ks = pd.read_csv(os.path.join(OUT, "match_sym.csv")).set_index("N").kappa_star.to_dict()
         jobs = [("verify", c, ep, N, fin_pool, 8_100_000, {"kstar": ks}) for N in (6, 8) for c in ("noisy", "nominal") for ep in chunks(1000, 50)]
         run(jobs, os.path.join(OUT, "verify.csv.gz"), a.workers)
+    elif a.stage == "alloc":
+        jobs = [("alloc", "noisy", ep, 6, fin_pool, 8_100_000, {}) for ep in chunks(1000, 50)]
+        run(jobs, os.path.join(OUT, "alloc.csv.gz"), a.workers)
     elif a.stage == "load3":
         jobs = [("load", "noisy", ep, N, fin_pool, 8_100_000, {"alpha": 1.0, "tau_a": ta, "timeout_factor": 3.0})
                 for ta in (1.5, 3.0, 4.5) for N in (6, 8, 12) for ep in chunks(200, 50)]
