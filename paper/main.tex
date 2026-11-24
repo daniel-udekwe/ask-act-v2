@@ -134,7 +134,7 @@ Section~\ref{sec:related} reviews related work. Section~\ref{sec:method} describ
 \section{Related work}
 \label{sec:related}
 
-\paragraph{Delivery robots among pedestrians.}
+\paragraph{Sidewalk delivery robots and pedestrians.}
 Sidewalk autonomous delivery robots now operate on university campuses and in city centres \cite{JenningsFigliozzi2019}. Because they travel on paths designed for pedestrians and bicyclists, they interact with both, and one week of video from ten campus locations has been used to measure how often and how severely these interactions occur \cite{Gehrke2023}. Most transportation research on these robots concerns fleet planning: scheduling truck-based robot deliveries \cite{Boysen2018}, routing integrated truck-and-robot systems \cite{Simoni2020,Ostermeier2023}, and combining robot routing with public transport \cite{DeMaio2024}. These studies decide where and when robots travel and leave each encounter with a pedestrian to the robot's onboard autonomy. How a fleet should resolve ambiguous encounters in real time, and what part a shared human operator should play, remains open.
 
 \paragraph{Multi-robot task allocation.}
@@ -164,27 +164,33 @@ Minimizing expected cost trades rare severe outcomes against frequent small ones
 Quantum annealing has been used to route automated guided vehicles without collision \citep{ohzeki2019agv}, multi-robot path planning has been cast as a QUBO with problem-size reduction for current hardware \citep{gonzalez2026qubopath}, and \citet{petschnigg2019quantum} survey quantum computation for robotics. These studies coordinate robots' motion with synthetic or geometric costs. To our knowledge, none builds the QUBO coefficients from a calibrated perception model, couples robots through a shared human, or measures in closed loop how the resulting decisions affect safety and delay.
 
 \paragraph{Positioning of this study.}
-Table~\ref{tab:positioning} compares representative studies on six features. Operator-allocation and staffing studies share a human across robots or vehicles but act over minutes to hours and do not use perception-derived risk. Delivery-robot planning studies coordinate fleets but leave encounters with pedestrians to onboard autonomy. Pedestrian-intent and interaction studies model the seconds-scale encounter but involve no human assistance, and QUBO studies of multi-robot systems coordinate motion with geometric costs. To our knowledge, no previous study combines a human shared by several robots, a seconds-scale safety deadline, calibrated crossing probabilities as decision inputs and closed-loop evaluation of pedestrian safety. The present study combines these elements and, in addition, separates the value of deciding at a common deadline from the value of coordinating the operator's questions, tests safety when the operator's answers can be wrong, and benchmarks QAOA on the resulting perception-derived instances under an analysis plan fixed in advance.
+Table~\ref{tab:positioning} compares representative studies on six features. Operator-allocation and staffing studies share a human across robots or vehicles but act over minutes to hours and do not use perception-derived risk. Delivery-robot planning studies coordinate fleets but leave encounters with pedestrians to onboard autonomy. Pedestrian-intent and interaction studies model the seconds-scale encounter but involve no human assistance, and QUBO studies of multi-robot systems coordinate motion with geometric costs. Learning-to-defer methods consult a human input by input, without a shared queue, a physical alternative to deferring or a safety deadline. To our knowledge, no previous study combines a human shared by several robots, a seconds-scale safety deadline, calibrated crossing probabilities as decision inputs and closed-loop evaluation of pedestrian safety. The present study combines these elements and, in addition, separates the value of deciding at a common deadline from the value of coordinating the operator's questions, tests safety when the operator's answers can be wrong, and benchmarks QAOA on the resulting perception-derived instances under an analysis plan fixed in advance.
 
 \begin{table*}
 \centering
-\caption{Positioning of this study. \checkmark: addressed; $\circ$: partly addressed; --: not addressed. Shared human: one person assists several robots or vehicles. Seconds-scale deadline: decisions that must be taken within seconds for safety. Perception-derived risk: calibrated probabilities from a perception model enter the decision. Closed-loop safety: collisions with pedestrians are evaluated in closed loop. Timing vs.\ coordination: the value of coordinating decisions is separated from other differences between policies.}
+\caption{Positioning of this study relative to representative related work. \checkmark: present; $\circ$: crossing probabilities are predicted but not calibrated for, or used in, a decision; --: absent. Multi-agent: decisions of several robots or vehicles are modelled jointly. Shared operator: one human, or a small pool, serves several robots or vehicles. Seconds-scale: a safety-relevant decision must be taken within seconds of an encounter. Calibrated: calibrated probabilities or coverage guarantees drive the decision. Pedestrian safety: conflicts or collisions with pedestrians are measured. QUBO/quantum: the problem is posed as a QUBO or solved with quantum methods.}
 \label{tab:positioning}
-\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}lcccccc}
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}>{\raggedright\arraybackslash}p{0.19\textwidth}>{\raggedright\arraybackslash}p{0.27\textwidth}cccccc}
 \toprule
-Study & Shared & Seconds-scale & Perception- & Closed-loop & Timing vs. & QUBO / \\
- & human & deadline & derived risk & safety & coordination & QAOA \\
+Study & Focus & Multi- & Shared & Seconds- & Cali- & Pedestrian & QUBO/ \\
+ & & agent & operator & scale & brated & safety & quantum \\
 \midrule
-Operator allocation \citep{Dahiya2022,Swamy2020,Cai2022} & \checkmark & -- & -- & -- & -- & -- \\
-Teleoperation staffing \citep{Goodall2020,Madadi2026} & \checkmark & -- & -- & -- & -- & -- \\
-Delivery-robot fleet planning \citep{Boysen2018,Simoni2020,Ostermeier2023} & -- & -- & -- & -- & -- & -- \\
-Pedestrian intent prediction \citep{rasouli2019pie,Razali2021,MunirKucner2025} & -- & $\circ$ & $\circ$ & -- & -- & -- \\
-Pedestrian--vehicle interaction \citep{KalatianFarooq2021,WangMaYang2026} & -- & \checkmark & -- & $\circ$ & -- & -- \\
-Robots that ask for help \citep{fong2003asker,ren2023knowno} & -- & -- & \checkmark & -- & -- & -- \\
-Learning to defer \citep{Madras2018,MozannarSontag2020} & $\circ$ & -- & \checkmark & -- & -- & -- \\
-Single-robot Ask or Act \citep{udekwe2026askoract} & -- & \checkmark & \checkmark & \checkmark & -- & -- \\
-QUBO multi-robot planning \citep{ohzeki2019agv,gonzalez2026qubopath} & -- & -- & -- & -- & -- & \checkmark \\
-This study & \checkmark & \checkmark & \checkmark & \checkmark & \checkmark & \checkmark \\
+\citet{ren2023knowno} & Robot planners that ask a human for help & -- & -- & -- & \checkmark & -- & -- \\
+\citet{udekwe2026askoract} & One sidewalk robot: go, yield or ask & -- & -- & \checkmark & \checkmark & \checkmark & -- \\
+\citet{Dahiya2022} & Allocating operators to robots (restless bandit) & \checkmark & \checkmark & -- & -- & -- & -- \\
+\citet{Swamy2020} & Learning which robot an operator should control & \checkmark & \checkmark & -- & -- & -- & -- \\
+\citet{Cai2022} & Scheduling teleoperation across robot missions & \checkmark & \checkmark & -- & -- & -- & -- \\
+\citet{Goodall2020} & Legal setting and staffing of AV remote operation & -- & \checkmark & -- & -- & -- & -- \\
+\citet{Madadi2026} & Teleoperator-to-vehicle ratio in freight fleets & \checkmark & \checkmark & -- & -- & -- & -- \\
+Delivery-robot planning \citep{Boysen2018,Simoni2020,Ostermeier2023,DeMaio2024} & Truck-and-robot scheduling and routing; robots with public transport & \checkmark & -- & -- & -- & -- & -- \\
+\citet{Gehrke2023} & Observed robot--pedestrian interactions on campus & -- & -- & -- & -- & \checkmark & -- \\
+Intent prediction \citep{Razali2021,MunirKucner2025} & Pedestrian crossing-intention prediction & -- & -- & -- & $\circ$ & -- & -- \\
+\citet{WangMaYang2026} & Game-theoretic AV--pedestrian interaction with eHMIs & \checkmark & -- & \checkmark & -- & \checkmark & -- \\
+Quantum multi-robot \citep{ohzeki2019agv,gonzalez2026qubopath} & Annealing / QUBO for multi-robot motion & \checkmark & -- & -- & -- & -- & \checkmark \\
+\midrule
+This study & Robot fleet sharing one operator: go, yield or ask & \checkmark & \checkmark & \checkmark & \checkmark & \checkmark & \checkmark \\
 \bottomrule
 \end{tabular*}
 \end{table*}
